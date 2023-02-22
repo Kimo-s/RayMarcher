@@ -24,11 +24,18 @@ namespace ifs {
 			this->a = a;
 		}
 
-		Color operator+ (Color const& col) {
+		const Color operator+ (const Color& col) const {
 			return Color((this->r + col.r), (this->g + col.g), (this->b + col.b), (this->a + col.a));
 		}
 
-		Color operator- (Color const& col) {
+		const bool operator< (const Color& col) const {
+			float magn1 = sqrt(r * r + g * g + b * b + a * a);
+			float magn2 = sqrt(col.r * col.r + col.g * col.g + col.b * col.b + col.a * col.a);
+			return magn1 < magn2;
+		}
+
+
+		Color operator- (const Color& col) {
 			return Color((this->r - col.r), (this->g - col.g), (this->b - col.b),  (this->a - col.a));
 		}
 
@@ -43,6 +50,16 @@ namespace ifs {
 		Color& operator+= (const Color& v)
 		{
 			r += v.r; b += v.b; g += v.g; a += v.a; return *this;
+		}
+
+		const bool operator== (const Color& v) const
+		{
+			if (v.r == r && v.b == b && v.g == g && v.a == a) {
+				return true;
+			}
+			else {
+				return false;
+			}
 		}
 
 		friend const Color operator* (const double scalar, const Color& v) {

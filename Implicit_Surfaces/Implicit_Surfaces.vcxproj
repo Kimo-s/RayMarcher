@@ -109,7 +109,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <OpenMPSupport>true</OpenMPSupport>
-      <Optimization>Full</Optimization>
+      <Optimization>MaxSpeed</Optimization>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
@@ -146,7 +146,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <OpenMPSupport>true</OpenMPSupport>
-      <Optimization>Full</Optimization>
+      <Optimization>MaxSpeed</Optimization>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
@@ -158,6 +158,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="ColorFieldFuncs.cpp" />
     <ClCompile Include="FieldClasses.cpp" />
     <ClCompile Include="ImplicitFunctions.cpp" />
     <ClCompile Include="Main.cpp">
@@ -166,17 +167,21 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
       </ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="Matrix.cpp" />
     <ClCompile Include="miniz.c" />
+    <ClCompile Include="ScalarFieldFuncs.cpp" />
     <ClCompile Include="VolumeClasses.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Color.h" />
+    <ClInclude Include="ColorFieldFuncs.h" />
     <ClInclude Include="FieldClasses.h" />
-    <ClInclude Include="FieldBase.h" />
     <ClInclude Include="IFSclasses.h" />
+    <ClInclude Include="Matrix.h" />
     <ClInclude Include="miniz.h" />
     <ClInclude Include="OBJ_Loader.h" />
+    <ClInclude Include="ScalarFieldFuncs.h" />
     <ClInclude Include="tinyexr.h" />
     <ClInclude Include="Vector.h" />
     <ClInclude Include="VolumeBase.h" />

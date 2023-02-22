@@ -70,7 +70,7 @@ namespace ifs
 				//printf("(cut)Value at (%f,%f,%f): %f\n", x, y, z, result);
 			}
 			else if (operation == CSGop::TRANSLATE) {
-				result = f->eval(x + translateVector.x, y + translateVector.y, z + translateVector.z);
+				result = f->eval(x - translateVector.x, y - translateVector.y, z - translateVector.z);
 				//printf("(translate)Value at (%f,%f,%f): %f\n", x, y, z, result);
 			}
 			else if (operation == CSGop::SCALE) {

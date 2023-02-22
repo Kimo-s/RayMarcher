@@ -18,9 +18,8 @@ using namespace ifs;
 #include <omp.h>
 
 
-
 float sphere(float x, float y, float z) {
-	return 1.0f - sqrt(x * x + y * y + z * z) ;
+	return 0.5f - sqrt(x * x + y * y + z * z) ;
 }
 
 float steinerPatch(float x, float y, float z) {
@@ -110,16 +109,20 @@ float tours(float x, float y, float z) {
 	return 4* Rmajor* Rmajor*(xbar*xbar)-((P*P+ Rmajor* Rmajor- Rminor* Rminor)* (P * P + Rmajor * Rmajor - Rminor * Rminor));
 }
 
-void rayMarch(ifs::ScalarField f, VolumeGrid<float>* DSM, Color lightColor, FieldBase<Color>* colField, Camera c, Vector cameraPosition, float ds, float snear, float sfar, float k, int width, int height, string filename) {
+void rayMarch(scalarFieldT f, std::vector<VolumeGrid<float>* > DSM, std::vector<Color> lightColor, ColorField colField, Camera c, Vector cameraPosition, float ds, float snear, float sfar, float k, int width, int height, string filename) {
 
 	float dx = (1.0f / (width - 1));
 	float dy = (1.0f / (height - 1));
 	std::vector<float> buf(width * height * 4);
 
+	if (DSM.size() != lightColor.size()) {
+		std::cout << "Please supply the same number of colors as there are deep shadow maps.\n";
+		return;
+	}
+
 	int percent = 0;
 	
-	
-	#pragma omp parallel for schedule(dynamic) num_threads(20) collapse(2) shared(percent) 
+	#pragma omp parallel for schedule(dynamic) num_threads(30) collapse(2) shared(percent, f, DSM) 
 	for (int j = 0; j < height; j++) {
 		for (int i = 0; i < width; i++) {
 			float s = snear;
@@ -128,16 +131,17 @@ void rayMarch(ifs::ScalarField f, VolumeGrid<float>* DSM, Color lightColor, Fiel
 			Vector ray = c.view(i * dx, j * dy) * s + cameraPosition;
 			float T = 1.0f;
 			while (s < sfar) {
-				float res = f.eval(ray.X(), ray.Y(), ray.Z());
+				//printf("The ray: %s\n", ray.__str__());
+				float res = f->eval(ray);
 				if (res > 0.0f) {
-					//printf("(%f, %f, %f) value: %f\n", ray[0], ray[1], ray[2], res);
 					float dT = exp(-k * ds * res);
-					float dTL = exp(-k * DSM->eval(ray));
-					//Vector colPoint = f.evalColor(ray.X(), ray.Y(), ray.Z());
+					Color dtls= lightColor[0] * exp(-k * DSM[0]->eval(ray));
+					//cout << dtls.print() << endl;
+					/*for (int q = 0; q < DSM.size(); q++) {
+						dtls += lightColor[q] * exp(-k * DSM[q]->eval(ray));
+					}*/
 					Color fieldCol = colField->eval(ray);
-					//Vector colPoint = Vector(fieldCol.r, fieldCol.g, fieldCol.b);
-					//Vector colPointL = Vector(lightColor.r, lightColor.g, lightColor.b);
-					col += fieldCol * T * ((1.0f - dT) / k); // *lightColor * dTL;
+					col += fieldCol * 1.0e-6f + fieldCol * T * ((1.0f - dT)/k) * dtls;
 					T *= dT;
 				}
 				ray += c.view(i * dx, j * dy) * ds;
@@ -165,33 +169,49 @@ void rayMarch(ifs::ScalarField f, VolumeGrid<float>* DSM, Color lightColor, Fiel
 	}
 }
 
-ifs::ScalarField sym(ifs::ScalarField f, ScalarField g, Point P) {
-	f = f.max(g.translate(P));
-	P.x = -P.x;
-	f = f.max(g.translate(P));
-	return f;
+void sym(scalarFieldT& f, scalarFieldT& g, Vector P, ColorField& curField, Color col) {
+	scalarFieldT f2 = f.max((g).translate(P));
+	curField = curField + colorMaskField(f2, col);
+	P.set(-P.X(), P.Y(), P.Z());
+	f = f2.max(g.translate(P).rotate(Vector(0.0f, 0.0f, 1.0f), -M_PI / 2.0f).translate(Vector(1.0f, 0.0f, 0.0f)));
+	curField = curField + colorMaskField(f2.max(g.translate(P).rotate(Vector(0.0f, 0.0f, 1.0f), -M_PI / 2.0f)).translate(Vector(1.0f, 0.0f, 0.0f)), col);
 }
 
 int main() {
-	Vector color1(0.3f,0.7f,0.2f);
-	Vector color2(0.0f, 0.8f, 0.5f);
-	Vector color3(0.6f, 0.0f, 0.9f);
+	Color color1(0.0f, 1.0f, 0.0f, 1.0f);
+	Color color2(0.0f, 0.8f, 0.5f, 1.0f);
+	Color color3(0.6f, 0.0f, 0.9f, 1.0f);
 
 
 	//// Main Body
-	//ifs::ScalarField h(box, color1);
-	//h = h.mask();
-	//h = h.max(ifs::ScalarField(cone, color3).translate(ifs::Point{ 0.0f,0.0f,3.0f }).mask());
-	//h = h.max(ScalarField(sphere, color1).translate(Point{ 0.0f, 0.0f, 1.5f }).mask());
 	//
+	//scalarFieldT h = funcField(box).scale(0.6f);
+	//ColorField colField = colorMaskField(h, color1);
+	////h = h.mask();
+	//scalarFieldT temp = funcField(cone).scale(0.6f).translate(Vector(0.0f, 0.0f, -1.5f));
+	//h = h.max(temp);
+	//colField = colField + colorMaskField(temp, color3);
 
-	//// Arms
+	//temp = funcField(sphere).scale(0.5f).translate(Vector(0.0f, 0.0f, -2.0f));
+	//h = h.max(temp);
+	//colField = colField + colorMaskField(temp, color1);
+
+	//temp = funcField(box).scale(0.6f).translate(Vector(0.0f, 0.0f, -1.5f));
+	//h = h.max(temp);
+	//colField = colField + colorMaskField(temp, color2);
+
+	////// Arms
 	//float armscale = 0.7f;
-	//h = sym(h, ScalarField(sphere, color2).scale(Point{0.0f,0.0f,0.0f},armscale).mask(), Point{ armscale * 1.0f, 0.0f, 0.7f });
-	//h = sym(h, ScalarField(ellipse, color3).scale(Point{ 0.0f,0.0f,0.0f }, armscale).mask(), Point{ armscale * 2.3f, 0.0f, 0.7f });
-	//h = sym(h, ScalarField(sphere, color2).scale(Point{ 0.0f,0.0f,0.0f }, armscale).mask(), Point{ armscale * 3.6f, 0.0f, 0.7f });
-	//h = sym(h, ScalarField(ellipse, color3).scale(Point{ 0.0f,0.0f,0.0f }, armscale).mask(), Point{ armscale * 4.6f, 0.0f, 0.7f });
-	//h = sym(h, ScalarField(icosahedron, color1).scale(Point{ 0.0f,0.0f,0.0f }, armscale*0.1f).mask(), Point{ armscale * 5.6f, 0.0f, 0.7f });
+	//temp = funcField(sphere).scale(armscale);
+	//sym(h, temp, Vector(-armscale * 1.0f, 0.0f, -0.7f), colField, color1);
+	//temp = funcField(ellipse).scale(armscale);
+	//sym(h, temp, Vector(-armscale * 2.3f, 0.0f, -0.7f), colField, color3);
+	//temp = funcField(sphere).scale(armscale);
+	//sym(h, temp, Vector(-armscale * 3.6f, 0.0f, -0.7f), colField, color2); //h = sym(h, ScalarField(sphere, color2).scale(Point{ 0.0f,0.0f,0.0f }, armscale).mask(), Point{ armscale * 3.6f, 0.0f, 0.7f });
+	//temp = funcField(ellipse).scale(armscale);
+	//sym(h, temp, Vector(-armscale * 4.6f, 0.0f, -0.7f), colField, color3); //h = sym(h, ScalarField(ellipse, color3).scale(Point{ 0.0f,0.0f,0.0f }, armscale).mask(), Point{ armscale * 4.6f, 0.0f, 0.7f });
+	//temp = funcField(icosahedron).scale(armscale * 0.1f);
+	//sym(h, temp, Vector(-armscale * 5.6f, 0.0f, -0.7f), colField, color1); //h = sym(h, ScalarField(icosahedron, color1).scale(Point{ 0.0f,0.0f,0.0f }, armscale*0.1f).mask(), Point{ armscale * 5.6f, 0.0f, 0.7f });
 
 	//// Legs
 	//float T = -0.5f;
@@ -204,17 +224,25 @@ int main() {
 	//h = sym(h, ScalarField(cone, color3).scale(Point{ 0.0f,0.0f,0.0f }, legscale).mask(), Point{ 0.8f, 0.0f, legscale * -5.3f + T });
 	//-------------------------------------------------------------------->
 
-	ScalarField f = ScalarField(sphere);
-	ScalarField g = ScalarField(sphere).scale(Point{ 0.0f,0.0f,0.0f }, 0.5f).translate(Point{ 1.0f,0.0f,0.0f });
-	VolumeGrid<float> t = VolumeGrid<float>(f.max(g), 500, 500, 500, 0.02f, 0.02f, 0.02f, Vector(-5.0f, -5.0f, -5.0f));
+	/*scalarFieldT f = funcField(sphere);
+	scalarFieldT g = funcField(sphere).translate(Vector(-1.0f, 0.f, 0.f));
+	scalarFieldT s = f+g;
 
-	VolumeGrid<float> dsm;
-	//VolumeGrid<float> L = createGrid("bunny.obj", 300, 300, 300, 0.033f, 0.033f, 0.033f, Vector(-4.0f, -4.0f, -4.0f));
+	ColorField f1 = colorMaskField(f, Color(0.2f, 0.8f, 0.2f, 1.0f));
+	ColorField g1 = colorMaskField(g, Color(0.7f, 0.3f, 0.8f, 1.0f));
+	ColorField colField = f1+g1; */
 
 
-	ScalarField h(&t, color3);
-	ColorFieldMask colField = ColorFieldMask(h, Color(0.2f, 0.1f, 0.2f, 1.0f));
+	scalarFieldT h = gridField("teapot.obj", 200, 200, 200, 0.05f, 0.05f, 0.05f, Vector(-5.0f, -5.0f, -5.0f)).rotate(Vector(1.0f, 0.0f, 0.0f), M_PI / 2.0f).translate(Vector(0.0f, 0.0f, 1.0f));
+	ColorField colField = colorMaskField(h, color1);
 
+	/*h = h.max(funcField(sphere).translate(Vector(-3.0, 0.0, 0.0)));
+	colField = colField + colorMaskField(funcField(sphere).translate(Vector(-3.0, 0.0, 0.0)), color2);*/
+	VolumeGrid<float> dsm(h, Vector(8.0, 8.0, 0.0), 300, 300, 300, 0.033f, 0.033f, 0.033f, Vector(-5.0f, -5.0f, -5.0f));
+
+
+	std::vector< VolumeGrid<float>* > dsmMap = { &dsm };
+	std::vector< Color > lightColorMap = { Color(1.0f, 1.0f, 1.0f, 1.0f) };
 
 	// Input parameters
 	int width = 1920;
@@ -222,23 +250,25 @@ int main() {
 	float ds = 0.01f;
 	float sfar = 8.0f;
 	float snear = 1.0f;
-	float k = 0.4f;
+	float k = 0.5f;
 
 	Camera c;
-	float r = 5.0f;
+	float r = 7.0f;
 	float theta = M_PI / 2.0f;
 	int N = 120;
 	float dt = 2.0f * M_PI / N;
 
 
 	for (int i = 0; i < 120; i++) {
-		Vector cameraCenter = Vector(cos(theta + i * dt) * r, sin(theta + i * dt) * r, 0);
+		Vector cameraCenter = Vector(cos(theta + i * dt) * r, sin(theta + i * dt) * r, -2.0f);
 		c.setEyeViewUp(cameraCenter, -1.0f * cameraCenter, Vector(0, 0, 1));
 
 
 		char name[100];
 		sprintf_s(name, 100, "../../exrFiles/out%03d.exr", i + 1);
-		rayMarch(h, &dsm, Color(1.0f, 0.5f, 0.0f, 1.0f), &colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
+		//f = (&f)->rotate(Vector(0.0f, 0.0f, 1.0f), (M_PI/120));
+		//f1 = new ColorFieldMask(f, color3);
+		rayMarch(h, dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
 	}
 	
 

@@ -5,6 +5,20 @@
 
 namespace ifs {
 
+
+
+	class constScalarField : public FieldBase<float> {
+	public:
+		float C;
+
+		constScalarField(float c) : C(c) {};
+
+		const float eval(const Vector& pos) const {
+			return C;
+		};
+	};
+
+
 	class AddScalarFields : public FieldBase<float> {
 	public:
 		AddScalarFields(const scalarFieldT& a, const scalarFieldT& b);
@@ -23,6 +37,19 @@ namespace ifs {
 		ScaleScalarField(const scalarFieldT& a, const float& scalefactor);
 
 		const float eval(const Vector& pos) const;
+
+	};
+
+	class warpScalarField : public FieldBase<float> {
+	public:
+		const scalarFieldT F;
+		const VectorField V;
+
+		warpScalarField(const scalarFieldT& a, const VectorField& b) : F(a), V(b) {};
+
+		const float eval(const Vector& pos) const {
+			return F->eval(V->eval(pos));
+		};
 
 	};
 
@@ -62,11 +89,64 @@ namespace ifs {
 
 	};
 
+	class CutScalarField : public FieldBase<float> {
+	public:
+		const scalarFieldT a;
+		const scalarFieldT b;
+
+		CutScalarField(const scalarFieldT& a, const scalarFieldT& b);
+
+		const float eval(const Vector& pos) const;
+
+	};
+
 	class MaskScalarField : public FieldBase<float> {
 	public:
 		const scalarFieldT a;
 
 		MaskScalarField(const scalarFieldT& a);
+
+		const float eval(const Vector& pos) const;
+
+	};
+
+	class wispScalarField : public FieldBase<float> {
+	public:
+		VolumeGrid<float>* grid;
+		FSPNParms fspn1;
+		FSPNParms fspn2;
+
+		wispScalarField(VolumeParms parms, FSPNParms fspn1, FSPNParms fspn2, Vector guidPos, float density, float pscale, float wisp_displacement, float clump, int wispCount);
+
+		const float eval(const Vector& pos) const;
+
+	};
+
+	class pyroclasticScalarField : public FieldBase<float> {
+	public:
+		const scalarFieldT a;
+		int N;
+		float r;
+		Vector xt;
+		float f;
+		float fj;
+
+		pyroclasticScalarField(const scalarFieldT& a, int N, float r, Vector xt, float f, float fj);
+
+		const float eval(const Vector& pos) const;
+
+	};
+
+	class addGuideParticaleScalarField : public FieldBase<float> {
+	public:
+		VolumeGrid<float>* grid;
+		int N;
+		float r;
+		Vector xt;
+		float f;
+		float fj;
+
+		addGuideParticaleScalarField(Vector u, int N, float r, Vector xt, float f, float fj, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz);
 
 		const float eval(const Vector& pos) const;
 

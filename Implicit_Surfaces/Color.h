@@ -35,7 +35,7 @@ namespace ifs {
 		}
 
 
-		Color operator- (const Color& col) {
+		const Color operator- (const Color& col) const {
 			return Color((this->r - col.r), (this->g - col.g), (this->b - col.b),  (this->a - col.a));
 		}
 
@@ -45,6 +45,11 @@ namespace ifs {
 
 		Color operator* (Color col) {
 			return Color(col.r * this->r, col.g * this->g, col.b * this->b, col.a * this->a);
+		}
+
+		const Color operator- (const double& v) const
+		{
+			return Color(r - v, g - v, b - v, a - v);
 		}
 
 		Color& operator+= (const Color& v)

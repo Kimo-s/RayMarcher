@@ -11,6 +11,18 @@ using namespace std;
 
 namespace ifs 
 {
+
+	struct VolumeParms {
+		int Nx;
+		int Ny;
+		int Nz;
+		float dx;
+		float dy;
+		float dz;
+		Vector startPos;
+	};
+
+
 	// Wrapping a function volume
 	class VolumeFunc : public VolumeBase<float> {
 	public:
@@ -41,7 +53,8 @@ namespace ifs
 		T defaultValue = 0.0f;
 		int Nx, Ny, Nz;
 		Vector startPos;
-		T** data;
+		int blocksize;
+		std::unique_ptr<T* []> data;
 
 		VolumeGrid() {
 			Nx = 1;
@@ -75,14 +88,14 @@ namespace ifs
 		T eval(float x, float y, float z) {
 			Vector p(1.0f * (x - startPos[0]) / deltax, 1.0f * (y - startPos[1]) / deltay, 1.0f * (z - startPos[2]) / deltaz);
 
-			int p1 = static_cast<int>(floor(p.X()));
+			/*int p1 = static_cast<int>(floor(p.X()));
 			int p2 = static_cast<int>(floor(p.Y()));
-			int p3 = static_cast<int>(floor(p.Z()));
+			int p3 = static_cast<int>(floor(p.Z()));*/
 			Vector lowerLeft(static_cast<int>(floor(p.X())), static_cast<int>(floor(p.Y())), static_cast<int>(floor(p.Z())));
 
-			if (index2(p1, p2, p3) > Nx * Ny * Nz || index2(p1, p2, p3) < 0) {
+			/*if (index2(p1, p2, p3) > Nx * Ny * Nz || index2(p1, p2, p3) < 0) {
 				return defaultValue;
-			}
+			}*/
 
 			float weight[3];
 			T value = 0.0f;
@@ -98,9 +111,9 @@ namespace ifs
 					{
 						int cur_z = lowerLeft[2] + k;
 						weight[2] = 1.0 - std::abs(p[2] - cur_z);
-						if (index2(cur_x, cur_y, cur_z) < Nx * Ny * Nz && index2(cur_x, cur_y, cur_z) > 0) {
+						//if (index2(cur_x, cur_y, cur_z) < Nx * Ny * Nz && index2(cur_x, cur_y, cur_z) > 0) {
 							value += weight[0] * weight[1] * weight[2] * get(cur_x, cur_y, cur_z);
-						}
+						//}
 					}
 				}
 			}
@@ -108,13 +121,41 @@ namespace ifs
 			return value;
 		}
 
+		void splat(Vector pos, T val) {
+			Vector p(1.0f * (pos.X() - startPos[0]) / deltax, 1.0f * (pos.Y() - startPos[1]) / deltay, 1.0f * (pos.Z() - startPos[2]) / deltaz);
+
+
+			Vector lowerLeft(static_cast<int>(floor(p.X())), static_cast<int>(floor(p.Y())), static_cast<int>(floor(p.Z())));
+
+
+			Vector weight = p - lowerLeft;
+
+			set(lowerLeft[0] , lowerLeft[1], lowerLeft[2], get(lowerLeft[0], lowerLeft[1], lowerLeft[2])
+				+ val * (1.0 - weight[0]) * (1.0 - weight[1]) * (1.0 - weight[2]));
+			set(lowerLeft[0] + 1, lowerLeft[1], lowerLeft[2], get(lowerLeft[0] + 1, lowerLeft[1], lowerLeft[2])
+				+ val * ( weight[0]) * (1.0 - weight[1]) * (1.0 - weight[2]));
+			set(lowerLeft[0], lowerLeft[1] + 1, lowerLeft[2], get(lowerLeft[0], lowerLeft[1] + 1, lowerLeft[2])
+				+ val * (1.0 - weight[0]) * (weight[1]) * (1.0 - weight[2]));
+			set(lowerLeft[0], lowerLeft[1], lowerLeft[2] + 1, get(lowerLeft[0], lowerLeft[1], lowerLeft[2] + 1)
+				+ val * (1.0 - weight[0]) * (1.0 - weight[1]) * (weight[2]));
+			set(lowerLeft[0] + 1, lowerLeft[1] + 1, lowerLeft[2], get(lowerLeft[0] + 1, lowerLeft[1] + 1, lowerLeft[2])
+				+ val * (weight[0]) * (weight[1]) * (1.0 - weight[2]));
+			set(lowerLeft[0] + 1, lowerLeft[1], lowerLeft[2] + 1, get(lowerLeft[0] + 1, lowerLeft[1], lowerLeft[2] + 1)
+				+ val * (weight[0]) * (1.0 - weight[1]) * (weight[2]));
+			set(lowerLeft[0], lowerLeft[1] + 1, lowerLeft[2] + 1, get(lowerLeft[0], lowerLeft[1] + 1, lowerLeft[2] + 1)
+				+ val * (1.0 - weight[0]) * (weight[1]) * (weight[2]));
+			set(lowerLeft[0] + 1, lowerLeft[1] + 1, lowerLeft[2] + 1, get(lowerLeft[0] + 1, lowerLeft[1] + 1, lowerLeft[2] + 1)
+				+ val * (weight[0]) * (weight[1]) * (weight[2]));
+
+		}
+
 
 		int getBlock(int i, int j, int k) {
 			int toRet = i + j * Nx / 4 + k * Nx / 4 * Ny / 4;
-			if (i < 0 || j < 0 || k < 0 || i > Nx / 4 || j > Ny / 4 || k > Nz / 4 || toRet < 0 || toRet > ((Nx * Ny * Nz) / 64)) {
+			if (i < 0 || j < 0 || k < 0 || i >= Nx / 4 || j >= Ny / 4 || k >= Nz / 4 || toRet < 0 || toRet > blocksize) {
 				return -1;
 			}
-			return i + j * Nx / 4 + k * Nx / 4 * Ny / 4;
+			return toRet;
 		}
 
 		int index2(int i, int j, int k) {
@@ -145,14 +186,16 @@ namespace ifs
 		}
 
 		T get(int i, int j, int k) {
-			if (getBlock(i / 4, j / 4, k / 4) == -1) {
+			//printf("\r%d %d %d", i, j, k);
+			int block = getBlock(i / 4, j / 4, k / 4);
+			if (block == -1 /*|| index2(i, j, k) > Nx * Ny * Nz || index2(i, j, k) < 0 || i < 0 || j < 0 || k < 0 || i >= Nx || j >= Ny || k >= Nz*/) {
 				return defaultValue;
 			}
-			else if (data[getBlock(i / 4, j / 4, k / 4)] == NULL) {
+			else if (data[block] == NULL) {
 				return defaultValue;
 			}
 			else {
-				return data[getBlock(i / 4, j / 4, k / 4)][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4];
+				return data[block][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4];
 			}
 		}
 	};
@@ -233,14 +276,11 @@ namespace ifs
 
 
 		int getBlock(int i, int j, int k) {
-			if (i < 0 || j < 0 || k < 0 || i > Nx / 4 || j > Ny / 4 || k > Nz / 4) {
+			int toRet = i + j * Nx / 4 + k * Nx / 4 * Ny / 4;
+			if (i < 0 || j < 0 || k < 0 || i >= Nx / 4 || j >= Ny / 4 || k >= Nz / 4 || toRet < 0 || toRet >((Nx*Ny*Nz)/64)) {
 				return -1;
 			}
-			//int ind = i + j * Nx / 4 + k * Nx / 4 * Ny / 4;
-			//if (ind > Nx * Ny * Nz / 64) {
-			//	return -1;
-			//}
-			return i + j * Nx / 4 + k * Nx / 4 * Ny / 4;
+			return toRet;
 		}
 
 		int index2(int i, int j, int k) {
@@ -267,17 +307,15 @@ namespace ifs
 		}
 
 		Color get(int i, int j, int k) {
-			/*if (index2(i, j, k) > Nx * Ny * Nz || index2(i, j, k) < 0) {
-				return defaultValue;
-			}*/
-			if (getBlock(i / 4, j / 4, k / 4) == -1) {
+			int block = getBlock(i / 4, j / 4, k / 4);
+			if (block == -1 /*|| index2(i, j, k) > Nx * Ny * Nz || index2(i, j, k) < 0 || i < 0 || j < 0 || k < 0 || i >= Nx || j >= Ny || k >= Nz*/) {
 				return defaultValue;
 			}
-			else if (data[getBlock(i / 4, j / 4, k / 4)] == NULL) {
+			else if (data[block] == NULL) {
 				return defaultValue;
 			}
 			else {
-				return data[getBlock(i / 4, j / 4, k / 4)][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4];
+				return data[block][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4];
 			}
 		}
 	};

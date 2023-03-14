@@ -9,138 +9,161 @@ using namespace std;
 
 namespace ifs {
 
+	struct FSPNParms {
+		float gamma = 1.0f;
+		int N = 3;
+		float roughness = 1.1f;
+		float f = 2.0f;
+		float fj = 1.0f;
+		Vector xt = Vector(0.0, 0.0, 0.0);
+	};
+
+	class FDGradHandler
+	{
+	public:
+
+		FDGradHandler();
+
+		~FDGradHandler() {}
+
+		void setNbTerms(const int n)
+		{
+			if (n <= (int)_grad_coefficients.size() && n > 0)
+			{
+				_nb_grad = n;
+			}
+		}
+
+		const int nbTerms() const { return _nb_grad; }
+
+		void setStep(const double dx)
+		{
+			if (dx > 0) { _dx = dx; _dy = dx; _dz = dx; }
+		}
+
+		void setStep(const double dx, const double dy, const double dz)
+		{
+			if (dx > 0 && dy > 0 && dz > 0) { _dx = dx; _dy = dy; _dz = dz; }
+		}
+
+		const double step() const { return _dx; }
+		const double step_x() const { return _dx; }
+		const double step_y() const { return _dy; }
+		const double step_z() const { return _dz; }
+
+		const double coefficient(const int n) const
+		{
+			if (n > 0 && n <= _nb_grad) { return _grad_coefficients[_nb_grad - 1][n - 1]; }
+			return 0.0;
+		}
+
+
+	private:
+		int _nb_grad;
+		double _dx, _dy, _dz;
+		std::vector< std::vector<double> > _grad_coefficients;
+	};
+
+	//-----------------------------------------------------------------------------
+	// Setting up logic to be able to determine the data type of the gradient 
+	template <typename U>
+	struct GradType
+	{
+		typedef int GType;
+	};
+
+	template<>
+	struct GradType<float>
+	{
+		typedef Vector GType;
+	};
+
+	template<>
+	struct GradType<Vector>
+	{
+		typedef Matrix GType;
+	};
+
+	template<typename U, typename G>
+	const G FDGradient(const U& x, const U& y, const U& z)
+	{
+		return 0;
+	};
+
+	template<>
+	const Vector FDGradient(const float& x, const float& y, const float& z);
+
+	template<>
+	const Matrix FDGradient(const Vector& x, const Vector& y, const Vector& z);
+
+
 	template <typename T>
 	class FieldBase {
 	public:
+
 		typedef T volumeDataType;
+		typedef typename GradType<T>::GType volumeGradType;
+		FDGradHandler gradParams;
+
+		FieldBase() {}
+		virtual ~FieldBase() {}
+
+		virtual const volumeDataType eval(const Vector& pos) const = 0;
+
+		virtual const volumeGradType grad(const Vector& P) const
+		{
+			volumeDataType valueX{}, valueY{}, valueZ{};
+			valueX = valueX - valueX;
+			valueY = valueY - valueY;
+			valueZ = valueZ - valueZ;
+			Vector dx(gradParams.step_x(), 0, 0), dy(0, gradParams.step_y(), 0), dz(0, 0, gradParams.step_z());
+			for (size_t i = 1; i <= (size_t)gradParams.nbTerms(); i++)
+			{
+				double coeff = gradParams.coefficient((int)i);
+				if (isnan(coeff)) { std::cout << "Volume grad NAN " << i << "   dx " << dx.X() << " " << dx.Y() << " " << dx.Z() << std::endl; }
+				valueX += (eval(P + i * dx) - eval(P - i * dx)) * coeff / gradParams.step_x();
+				valueY += (eval(P + i * dy) - eval(P - i * dy)) * coeff / gradParams.step_y();
+				valueZ += (eval(P + i * dz) - eval(P - i * dz)) * coeff / gradParams.step_z();
+			}
+			return FDGradient<volumeDataType, volumeGradType>(valueX, valueY, valueZ);
+		}
+
 
 		volumeDataType eval(float x, float y, float z) const {
 			return eval(Vector(x, y, z));
 		}
 
-		virtual const volumeDataType eval(const Vector& pos) const = 0; // {
-		//	volumeDataType base; 
-		//	//base = 0; 
-		//	return base;
-		//}
+
+		void setFDSize(int nb) { gradParams.setNbTerms(nb); }
+		void setFDStep(double dx) { gradParams.setStep(dx); }
+		void setFDStep(double dx, double dy, double dz) { gradParams.setStep(dx, dy, dz); }
 
 	};
 
-	// Operations on color fields
-	//template <typename T>
-	//class AddFields : public FieldBase<T> {
-	//public:
-	//	FieldBase<T>* a;
-	//	FieldBase<T>* b;
+	class VectorField : public std::shared_ptr<FieldBase<Vector> > {
+	public:
 
-	//	AddFields(FieldBase<T>* a, FieldBase<T>* b) {
-	//		this->a = a;
-	//		this->b = b;
-	//		/*a.eval(Vector(0.0f, 0.0f, 0.0f));
-	//		b.eval(Vector(0.0f, 0.0f, 0.0f));*/
-	//	}
-
-	//	T eval(const Vector pos) const {
-	//		//printf("Testing A.eval:%s B.eval:%s\n", a->eval(pos).print(), b->eval(pos).print());
-	//		return a->eval(pos) + b->eval(pos);
-	//	}
-
-	//};
-
-	//template <typename T>
-	//class SubBase : public FieldBase<T> {
-	//public:
-	//	FieldBase<T>* a;
-	//	FieldBase<T>* b;
-
-	//	SubBase(FieldBase<T>* a, FieldBase<T>* b) {
-	//		this->a = a;
-	//		this->b = b;
-	//	}
-
-	//	T eval(const Vector pos) const {
-	//		return a->eval(pos) - b->eval(pos);
-	//	}
-
-	//};
-
-	//template <typename T>
-	//class TranslateField : public FieldBase<T> {
-	//public:
-	//	FieldBase<T>* a;
-	//	Vector translateVec;
-
-	//	TranslateField(FieldBase<T>* a, Vector translateVec) {
-	//		this->a = a;
-	//		this->translateVec = translateVec;
-	//	}
-
-	//	T eval(const Vector pos) const {
-	//		return a->eval(pos - translateVec);
-	//	}
-
-	//};
-
-	//template <typename T>
-	//class RotateField : public FieldBase<T> {
-	//public:
-	//	FieldBase<T>* a;
-	//	//float al, b, g;
-	//	Vector u;
-	//	float theta;
-	//	float m11, m12, m13, m21, m22, m23, m31, m32, m33;
-
-	//	RotateField(FieldBase<T>* a, Vector u, float theta) {
-	//		this->a = a;
-	//		this->u = u.unitvector();
-	//		this->theta = theta;
-	//		/*this->al = al;
-	//		this->b = b;
-	//		this->gamma = g;*/
-	//		m11 = (cos(theta) + sq(u.X()) * (1.0f - cos(theta)));
-	//		m12 = ((u.X() * u.Y() * (1.0f - cos(theta)) - u.Z() * sin(theta)));
-	//		m13 = ((u.X() * u.Z() * (1.0f - cos(theta)) + u.Y() * sin(theta)));
-
-	//		m21 = ((u.X() * u.Y() * (1.0f - cos(theta)) + u.Z() * sin(theta)));
-	//		m22 = (cos(theta) + sq(u.Y()) * (1.0f - cos(theta)));
-	//		m23 = ((u.Y() * u.Z() * (1.0f - cos(theta)) - u.X() * sin(theta)));
-
-	//		m31 = ((u.Z() * u.X() * (1.0f - cos(theta)) - u.Y() * sin(theta)));
-	//		m32 = ((u.Z() * u.Y() * (1.0f - cos(theta)) + u.X() * sin(theta)));
-	//		m33 = (cos(theta) + sq(u.Z()) * (1.0f - cos(theta)));
-	//	}
-
-	//	T eval(const Vector pos) const{
-	//		/*pos.xyz[0] = cos(al) * cos(b) * pos.X() + (cos(al) * sin(b) * sin(g) - sin(al) * cos(g)) * pos.Y() + (cos(al) * sin(b) * cos(g) + sin(al) * sin(g)) * pos.Z();
-	//		pos.xyz[1] = sin(al) * cos(b) * pos.X() + (sin(al) * sin(b) * sin(g) + cos(al) * cos(g)) * pos.Y() + (sin(al) * sin(b) * cos(g) - cos(al) * sin(g)) * pos.Z();
-	//		pos.xyz[2] = -sin(b) * pos.X() + cos(b) * sin(g) * pos.Y() + cos(b) * cos(g) * posZ();*/
-	//		float xc = m11 * pos.X() + m12 * pos.Y() + m13 * pos.Z();
-	//		float yc = m21 * pos.X() + m22 * pos.Y() + m23 * pos.Z();
-	//		float zc = m31 * pos.X() + m32 * pos.Y() + m33 * pos.Z();
-	//		return a->eval(Vector(xc, yc, zc));
-	//	}
-
-	//};
-
-	//template <typename T>
-	//class ScaleField : public FieldBase<T> {
-	//public:
-	//	FieldBase<T>* a;
-	//	float scaleFactor;
-
-	//	ScaleField(FieldBase<T>* a, float scaleFactor) {
-	//		this->a = a;
-	//		this->scaleFactor = scaleFactor;
-	//	}
-
-	//	T eval(const Vector pos) const {
-	//		return a->eval(pos/scaleFactor);
-	//	}
-
-	//};
+		//const VolumeBase<float> volume;
 
 
+		VectorField() : std::shared_ptr<FieldBase<Vector> >() {
+		}
+		VectorField(FieldBase<Vector>* f) : std::shared_ptr<FieldBase<Vector> >(f) {
+		};
+		~VectorField() {};
 
+
+		static VectorField add(VectorField& v1, const VectorField& v2);
+		VectorField max(const VectorField& v2);
+		VectorField cut(const VectorField& v2);
+		VectorField translate(const Vector transVec);
+		VectorField scale(float scaleFactor);
+		VectorField mask();
+		VectorField rotate(Vector u, float theta);
+		VectorField operator+(const VectorField& second);
+		VectorField operator-(const VectorField& second);
+
+	};
 
 	class scalarFieldT : public std::shared_ptr<FieldBase<float> > {
 	public:
@@ -154,18 +177,17 @@ namespace ifs {
 		};
 		~scalarFieldT() {};
 
-		/*const float eval(const Vector& pos) const {
-			return volume.eval(pos);
-		}*/
-
-		static scalarFieldT add(scalarFieldT& v1, const scalarFieldT& v2);\
+		static scalarFieldT add(scalarFieldT& v1, const scalarFieldT& v2);
 		scalarFieldT max(const scalarFieldT& v2);
+		scalarFieldT cut(const scalarFieldT& v2);
 		scalarFieldT translate(const Vector transVec);
 		scalarFieldT scale(float scaleFactor);
+		scalarFieldT pyroclasticNoise(int N, float r, Vector xt, float f, float fj);
 		scalarFieldT mask();
 		scalarFieldT rotate(Vector u, float theta);
+		scalarFieldT addGuideParticale(Vector u, int N, float r, Vector xt, float f, float fj, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz);
 		scalarFieldT operator+(const scalarFieldT& second);
-
+		scalarFieldT addWispParticale(VolumeParms parms, FSPNParms fspn1, FSPNParms fspn2, Vector guidPos, float density, float pscale, float wisp_displacement, float clump, int wispCount);
 	};
 
 	class ColorField : public std::shared_ptr<FieldBase<Color> > {
@@ -178,30 +200,34 @@ namespace ifs {
 		}
 
 		ColorField(FieldBase<Color>* f) : std::shared_ptr<FieldBase<Color> >(f) {
-			//(ColorFieldMask*)f.f
 		}
 
-		/*Color eval(const Vector& pos) const {
-			if (f->eval(pos) > 0.0f) {
-				return col;
-			}
-			else {
-				return Color(0.0f, 0.0f, 0.0f, 0.0f);
-			}
-		}*/
 
 		ColorField add(ColorField& v1, const ColorField& v2);
 		ColorField translate(const Vector transVec);
+		//ColorField max(const ColorField& second);
 		ColorField scale(float scaleFactor);
 		ColorField rotate(Vector u, float theta);
 		ColorField operator+(const ColorField& second);
 	};
 
+
+
+	scalarFieldT constantScalarField(float c);
 	scalarFieldT funcField(float(*func)(float x, float y, float z));
-	ColorField gridColorField(ColorField& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos); //Will be implmented in the future
+
+	ColorField gridColorField(ColorField& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos); 
 	ColorField colorMaskField(const scalarFieldT& f, Color col);
 	scalarFieldT gridField(int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
+
+	scalarFieldT constantField(float constant);
 	scalarFieldT gridField(scalarFieldT& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 	scalarFieldT gridField(scalarFieldT& vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 	scalarFieldT gridField(const char* filename, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
+
+	VectorField warp(VectorField soruce, VectorField wraper);
+	VectorField identityVectorField();
+	VectorField gradField(scalarFieldT f);
+	scalarFieldT warp(scalarFieldT soruce, VectorField wraper);
+
 }

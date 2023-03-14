@@ -18,6 +18,11 @@ ifs::VolumeGrid<float>::VolumeGrid<float>(int Nx, int Ny, int Nz, float deltax, 
 	this->deltay = deltay;
 	this->deltaz = deltaz;
 	this->startPos = startPos;
+	blocksize = (Nx * Ny * Nz) / 64;
+	data = make_unique<float* []>((Nx * Ny * Nz) / 64);
+	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
+		data[p] = NULL;
+	}
 }
 
 // Volume Grid
@@ -29,8 +34,8 @@ ifs::VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, int Nx, int Ny, int 
 	this->deltay = deltay;
 	this->deltaz = deltaz;
 	this->startPos = startPos;
-
-	data = new float*[(Nx * Ny * Nz) / 64];
+	blocksize = (Nx * Ny * Nz) / 64;
+	data = make_unique<float* []>((Nx * Ny * Nz) / 64);
 	//data = new float* [(Nx * Ny * Nz) / 64];
 	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
 		data[p] = NULL;
@@ -51,39 +56,6 @@ ifs::VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, int Nx, int Ny, int 
 	}
 	printf("\n");
 }
-
-//template<>
-//ifs::VolumeGrid<Color>::VolumeGrid<Color>(ColorField vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos)
-//{
-//	this->Nx = Nx;
-//	this->Ny = Ny;
-//	this->Nz = Nz;
-//	this->deltax = deltax;
-//	this->deltay = deltay;
-//	this->deltaz = deltaz;
-//	this->startPos = startPos;
-//
-//	data = make_unique<Color* []>((Nx * Ny * Nz) / 64);
-//	//data = new float* [(Nx * Ny * Nz) / 64];
-//	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
-//		data[p] = NULL;
-//	}
-//
-//	int finished = 0;
-//
-//	#pragma omp parallel for schedule(dynamic) num_threads(20) shared(finished) 
-//	for (int k = 0; k < Nz; k++) {
-//		for (int j = 0; j < Ny; j++) {
-//			for (int i = 0; i < Nx; i++) {
-//				Vector pos = Vector(i * deltax + startPos[0], j * deltay + startPos[1], k * deltaz + startPos[2]);
-//				set(i, j, k, vol->eval(pos));
-//			}
-//		}
-//		finished += 1;
-//		printf("\rCreating scalar grid from scalarfield: %0.2f%%", (finished + 1) * 1.0f / Nz);
-//	}
-//	printf("\n");
-//}
 
 
 float rayMarchLight(scalarFieldT f, Vector point, Vector lightPos, float ds) {
@@ -116,8 +88,8 @@ VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, Vector lightPos, int Nx, 
 	this->deltay = deltay;
 	this->deltaz = deltaz;
 	this->startPos = startPos;
-
-	data = new float* [(Nx * Ny * Nz) / 64];
+	blocksize = (Nx * Ny * Nz) / 64;
+	data = make_unique<float* []>((Nx * Ny * Nz) / 64);
 	//data = new float* [(Nx * Ny * Nz) / 64];
 	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
 		data[p] = NULL;
@@ -147,43 +119,43 @@ float distanceToTriangle(Vector p, Vector a, Vector b, Vector c) {
 
 	const float d1 = ab * ap;
 	const float d2 = ac * ap;
-	if (d1 <= 0.f && d2 <= 0.f) return (a - p).magnitude(); //#1
+	if (d1 <= 0.f && d2 <= 0.f) return (a - p).magnitude(); 
 
 	const Vector bp = p - b;
 	const float d3 = ab * bp;
 	const float d4 = ac * bp;
-	if (d3 >= 0.f && d4 <= d3) return (p - b).magnitude(); //#2
+	if (d3 >= 0.f && d4 <= d3) return (p - b).magnitude(); 
 
 	const Vector cp = p - c;
 	const float d5 = ab * cp;
 	const float d6 = ac * cp;
-	if (d6 >= 0.f && d5 <= d6) return (c - p).magnitude(); //#3
+	if (d6 >= 0.f && d5 <= d6) return (c - p).magnitude(); 
 
 	const float vc = d1 * d4 - d3 * d2;
 	if (vc <= 0.f && d1 >= 0.f && d3 <= 0.f)
 	{
 		const float v = d1 / (d1 - d3);
-		return ((a + v * ab) - p).magnitude(); //#4
+		return ((a + v * ab) - p).magnitude(); 
 	}
 
 	const float vb = d5 * d2 - d1 * d6;
 	if (vb <= 0.f && d2 >= 0.f && d6 <= 0.f)
 	{
 		const float v = d2 / (d2 - d6);
-		return ((a + v * ac) - p).magnitude(); //#5
+		return ((a + v * ac) - p).magnitude(); 
 	}
 
 	const float va = d3 * d6 - d5 * d4;
 	if (va <= 0.f && (d4 - d3) >= 0.f && (d5 - d6) >= 0.f)
 	{
 		const float v = (d4 - d3) / ((d4 - d3) + (d5 - d6));
-		return ((b + v * (c - b)) - p).magnitude(); //#6
+		return ((b + v * (c - b)) - p).magnitude(); 
 	}
 
 	const float denom = 1.f / (va + vb + vc);
 	const float v = vb * denom;
 	const float w = vc * denom;
-	return ((a + v * ab + w * ac) - p).magnitude(); //#0
+	return ((a + v * ab + w * ac) - p).magnitude(); 
 }
 
 
@@ -193,7 +165,7 @@ bool rayTriangleIntersect(
 	const Vector& v0, const Vector& v1, const Vector& v2,
 	double& t)
 {
-	float kEpsilon = 1.0e-5f;
+	float kEpsilon = 1.0e-6f;
 
 	// compute the plane's normal
 	Vector v0v1 = v1 - v0;
@@ -215,8 +187,7 @@ bool rayTriangleIntersect(
 	// compute t (equation 3)
 	t = -(N*orig + d) / NdotRayDirection;
 
-	// check if the triangle is behind the ray
-	if (t < 0) return false; // the triangle is behind
+	if (t < 0) return false;
 
 	// compute the intersection point using equation 1
 	Vector P = orig + t * dir;
@@ -245,36 +216,6 @@ bool rayTriangleIntersect(
 	return true; // this ray hits the triangle
 }
 
-//template<>
-//Color VolumeGrid<Color>::eval<Color>(float x, float y, float z) {
-//	Vector p(1.0f * (x - startPos[0]) / deltax, 1.0f * (y - startPos[1]) / deltay, 1.0f * (z - startPos[2]) / deltaz);
-//
-//	Vector lowerLeft(static_cast<int>(floor(p.X())), static_cast<int>(floor(p.Y())), static_cast<int>(floor(p.Z())));
-//
-//	float weight[3];
-//	Color value = 0.0f;
-//
-//	for (int i = 0; i < 2; ++i) {
-//		int cur_x = lowerLeft[0] + i;
-//		weight[0] = 1.0f - abs(p[0] - cur_x);
-//		for (int j = 0; j < 2; ++j)
-//		{
-//			int cur_y = lowerLeft[1] + j;
-//			weight[1] = 1.0 - std::abs(p[1] - cur_y);
-//			for (int k = 0; k <= 1; ++k)
-//			{
-//				int cur_z = lowerLeft[2] + k;
-//				weight[2] = 1.0 - std::abs(p[2] - cur_z);
-//				if (index2(cur_x, cur_y, cur_z) < Nx * Ny * Nz && index2(cur_x, cur_y, cur_z) > 0) {
-//					value += weight[0] * weight[1] * weight[2] * get(cur_x, cur_y, cur_z);
-//				}
-//			}
-//		}
-//	}
-//
-//	return value;
-//}
-
 
 ifs::VolumeGrid<float>::VolumeGrid<float>(const char* filename, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos) {
 
@@ -285,7 +226,8 @@ ifs::VolumeGrid<float>::VolumeGrid<float>(const char* filename, int Nx, int Ny, 
 	this->deltay = deltay;
 	this->deltaz = deltaz;
 	this->startPos = startPos;
-	this->data = new float* [(Nx * Ny * Nz) / 64];
+	blocksize = (Nx * Ny * Nz) / 64;
+	this->data = make_unique<float* []>((Nx * Ny * Nz) / 64);
 	this->defaultValue = -1000.0f;
 	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
 		this->data[p] = NULL;
@@ -301,10 +243,10 @@ ifs::VolumeGrid<float>::VolumeGrid<float>(const char* filename, int Nx, int Ny, 
 
 	int finished = 0;
 
-	int bandwidth = 30;
+	int bandwidth = 20;
 	for (int ind = 0; ind < loader.LoadedIndices.size(); ind += 3) {
 
-		Vector p1 = Vector(loader.LoadedVertices[loader.LoadedIndices[ind]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind]].Position.Y, loader.LoadedVertices[loader.LoadedIndices[ind]].Position.Z);
+		Vector p1 = Vector(loader.LoadedVertices[loader.LoadedIndices[ind]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind]].Position.Y , loader.LoadedVertices[loader.LoadedIndices[ind]].Position.Z);
 		Vector p2 = Vector(loader.LoadedVertices[loader.LoadedIndices[ind + 1]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind + 1]].Position.Y, loader.LoadedVertices[loader.LoadedIndices[ind + 1]].Position.Z);
 		Vector p3 = Vector(loader.LoadedVertices[loader.LoadedIndices[ind + 2]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind + 2]].Position.Y, loader.LoadedVertices[loader.LoadedIndices[ind + 2]].Position.Z);
 
@@ -373,23 +315,32 @@ ifs::VolumeGrid<float>::VolumeGrid<float>(const char* filename, int Nx, int Ny, 
 			Vector pos = Vector(startPos[0], j * deltay + startPos[1], k * deltaz + startPos[2]);
 			Vector d = (nextpos - pos).unitvector();
 			std::vector<int> ranges = {0};
-
+			std::vector<double> ts;
+			std::vector<Vector> triangles;
 
 			while(!exitwhile){
 				bool intersacted = false;
 				double t = numeric_limits<double>::max();
 				double oldt;
+				Vector a, b, c;
 
 
 				for (int ind2 = 0; ind2 < loader.LoadedIndices.size(); ind2 += 3) {
 					Vector A = Vector(loader.LoadedVertices[loader.LoadedIndices[ind2]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind2]].Position.Y, loader.LoadedVertices[loader.LoadedIndices[ind2]].Position.Z);
-					Vector B = Vector(loader.LoadedVertices[loader.LoadedIndices[ind2 + 1]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind2 + 1]].Position.Y, loader.LoadedVertices[loader.LoadedIndices[ind2 + 1]].Position.Z);
+					Vector B = Vector(loader.LoadedVertices[loader.LoadedIndices[ind2 + 1]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind2 + 1]].Position.Y , loader.LoadedVertices[loader.LoadedIndices[ind2 + 1]].Position.Z );
 					Vector C = Vector(loader.LoadedVertices[loader.LoadedIndices[ind2 + 2]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind2 + 2]].Position.Y, loader.LoadedVertices[loader.LoadedIndices[ind2 + 2]].Position.Z);
 	
 					double tn;
 					bool test;
 					test = rayTriangleIntersect(pos, d, A, B, C, tn);
+					//if (test && tn > 0.0f) {
+					//	ts.push_back(tn);
+					//	triangles.push_back(A);
+					//	triangles.push_back(B);
+					//	triangles.push_back(C);
+					//}
 					if (test && tn > 0.0f && tn < t) {
+						ts.push_back(tn);
 						intersacted = true;
 						oldt = t;
 						t = tn;
@@ -402,42 +353,154 @@ ifs::VolumeGrid<float>::VolumeGrid<float>(const char* filename, int Nx, int Ny, 
 				else if (intersacted && t != numeric_limits<float>::max()) {
 					Vector pointOnTriang = pos + t * d;
 					int hiti = static_cast<int>(ceil((pointOnTriang.X() - startPos[0]) / deltax));
-					//Vector hit2detect = pos + oldt * d;
-					//int hit2 = static_cast<int>(ceil((hit2detect.X() - startPos[0]) / deltax));
+
+					//sort(ts.begin(), ts.end());
+					/*if (ts.size() > 2) {
+						double t2 = ts[0];
+						int tmin = 0;
+						int tmin2 = 0;
+						for (int s = 1; s < ts.size(); s++) {
+							if (t2 > ts[s]) {
+								tmin2 = tmin;
+								tmin = s;
+								t2 = ts[s];
+							}
+						}
+						Vector A = triangles[tmin2 * 3];
+						Vector B = triangles[tmin2 * 3 + 1];
+						Vector C = triangles[tmin2 * 3 + 2];
+
+						int q = hiti;
+						double tHit;
+						while (true) {
+							q += 1;
+							pos.set(q* deltax + startPos[0], j* deltay + startPos[1], k* deltaz + startPos[2]);
+							rayTriangleIntersect(pos, d, A, B, C, tHit);
+							if (tHit < 0.0f) {
+								break;
+							}
+							set(q, j, k, fabs(get(q, j, k)));
+						}
+					}*/
+
+
+					/*Vector hit2detect = pos + oldt * d;
+					int hit2 = static_cast<int>(ceil((hit2detect.X() - startPos[0]) / deltax));*/
 					//if (hit2 == hiti) {
 					//	//printf("lol %d %d\n", hit2, lasti);
 					//	set(hiti, j, k, fabs(get(hiti, j, k)));
 					//	set(hit2, j, k, fabs(get(hit2, j, k)));
 					//} 
-					//ranges.push_back(hiti+1);
-					if (numOfIntersactions % 2 == 1) {
-						for (int q = lasti; q < hiti; q++) {
-							float val = get(q, j, k);
-							set(q, j, k, fabs(val));
+
+					bool skip = false;
+					/*if (ts.size() > 2) {
+						sort(ts.begin(), ts.end());
+						if (ts[1] - ts[0] < 0.1f) {
+							skip = true;
 						}
+					}*/
+					//ranges.push_back(hiti+1);
+					//set(hiti, j, k, 10.0f);
+					if (!skip) {
+						if (numOfIntersactions % 2 == 1) {
+							for (int q = lasti; q < hiti; q++) {
+								float val = get(q, j, k);
+								set(q, j, k, fabs(val));
+							}
+						}
+
+						pos = pointOnTriang + 1.0e-5 * d;
+						//pos.set((hiti+1)* deltax + startPos[0], pointOnTriang.Y(), pointOnTriang.Z());
+						lasti = hiti;
+						numOfIntersactions += 1;
 					}
-					pos = pointOnTriang + 1.0e-6 * d;
-					//pos.set((hiti+1)* deltax + startPos[0], pointOnTriang.Y(), pointOnTriang.Z());
-					lasti = hiti;
-					numOfIntersactions += 1;
+					//else {
+					//	pos = pos + (ts[1] + 0.06f) * d;
+					//	lasti = static_cast<int>(ceil((pos.X() - startPos[0]) / deltax));
+					//	numOfIntersactions += 1;
+					//}
+					//
 				}
 			}
-
-			/*if (ranges.size() != 0) {
-				for (int q = 0; q < ranges.size(); q++) {
-					if (q % 2 == 1) {
-						for (int r = ranges[q]; r < ranges[q + 1]; r++) {
-							set(r, j, k, fabs(get(r, j, k)));
-						}
-					}
-				}
-			}*/
 			
 		}
 		finished += 1;
-		printf("\rChecking intersections (%s): %0.2f%%", filename, (finished + 1) * 1.0f / Nz);
+		printf("\rChecking intersections along X axis (%s): %0.2f%%", filename, (finished + 1) * 1.0f / Nz);
 	}
 	printf("\n");
+
+	finished = 0;
+
+	 
+	//#pragma omp parallel for schedule(dynamic) num_threads(20) shared(finished)
+	//for (int k = 0; k < Nz; k++) {
+	//	for (int i = 0; i < Nx; i++) {
+
+	//		bool exitwhile = false;
+	//		int numOfIntersactions = 0;
+	//		int lasti = 0;
+
+	//		Vector nextpos = Vector(i * deltax + startPos[0], deltay + startPos[1], k * deltaz + startPos[2]);
+	//		Vector pos = Vector(i * deltax + startPos[0], startPos[1], k * deltaz + startPos[2]);
+	//		Vector d = (nextpos - pos).unitvector();
+
+
+	//		while (!exitwhile) {
+	//			bool intersacted = false;
+	//			double t = numeric_limits<double>::max();
+	//			double oldt;
+
+
+	//			for (int ind2 = 0; ind2 < loader.LoadedIndices.size(); ind2 += 3) {
+	//				Vector A = Vector(loader.LoadedVertices[loader.LoadedIndices[ind2]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind2]].Position.Y, loader.LoadedVertices[loader.LoadedIndices[ind2]].Position.Z);
+	//				Vector B = Vector(loader.LoadedVertices[loader.LoadedIndices[ind2 + 1]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind2 + 1]].Position.Y, loader.LoadedVertices[loader.LoadedIndices[ind2 + 1]].Position.Z);
+	//				Vector C = Vector(loader.LoadedVertices[loader.LoadedIndices[ind2 + 2]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind2 + 2]].Position.Y, loader.LoadedVertices[loader.LoadedIndices[ind2 + 2]].Position.Z);
+
+	//				double tn;
+	//				bool test;
+	//				test = rayTriangleIntersect(pos, d, A, B, C, tn);
+	//				if (test && tn > 0.0f && tn < t) {
+	//					intersacted = true;
+	//					oldt = t;
+	//					t = tn;
+	//				}
+	//			}
+	//			//std::cout << "value of intersacted " << intersacted  << " Value of t = " << t << endl;
+	//			if (!intersacted) {
+	//				exitwhile = true;
+	//			}
+	//			else if (intersacted && t != numeric_limits<float>::max()) {
+	//				Vector pointOnTriang = pos + t * d;
+	//				int hiti = static_cast<int>(floor((pointOnTriang.Y() - startPos[1]) / deltay));
+	//				//Vector hit2detect = pos + oldt * d;
+	//				//int hit2 = static_cast<int>(ceil((hit2detect.X() - startPos[0]) / deltax));
+	//				//if (hit2 == hiti) {
+	//				//	//printf("lol %d %d\n", hit2, lasti);
+	//				//	set(hiti, j, k, fabs(get(hiti, j, k)));
+	//				//	set(hit2, j, k, fabs(get(hit2, j, k)));
+	//				//} 
+	//				//ranges.push_back(hiti+1);
+	//				if (numOfIntersactions % 2 == 1) {
+	//					for (int q = lasti; q < hiti; q++) {
+	//						set(i, q, k, fabs(get(i, q, k)));
+	//					}
+	//				}
+	//				else {
+	//					for (int q = lasti; q < hiti; q++) {
+	//						set(i, q, k, -fabs(get(q, i, k)));
+	//					}
+	//				}
+	//				pos = pointOnTriang + 1.0e-5 * d;
+	//				//pos.set(pos.X(), (hiti + 1) * deltay + startPos[1], pos.Z());
+	//				lasti = hiti;
+	//				numOfIntersactions += 1;
+	//			}
+	//		}
+	//	}
+	//	finished += 1;
+	//	printf("\rChecking intersections along Y axis (%s): %0.2f%%", filename, (finished + 1) * 1.0f / Nz);
+	//}
+	//printf("\n");
 }
 
 ifs::VolumeColorGrid::VolumeColorGrid(ColorField vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos)

@@ -2,8 +2,24 @@
 #include "FieldClasses.h"
 #include "VolumeClasses.h"
 #include "Vector.h"
+#include<cstdlib>
+
+#define DB_PERLIN_IMPL
+#include "db_perlin.hpp"
+
 
 using namespace ifs;
+
+float evalFSPN(FSPNParms parm, Vector pos) {
+	float toAdd = 0.0f;
+	for (int q = 0; q < parm.N; q++) {
+		Vector temp = (pos - parm.xt) * parm.f * pow(parm.fj, q);
+		toAdd += pow(parm.roughness, q) * db::perlin(temp.X(), temp.Y(), temp.Z());
+	}
+	toAdd *= (1 - parm.roughness) / (1 - pow(parm.roughness, parm.N));
+
+	return toAdd;
+}
 
 AddScalarFields::AddScalarFields(const scalarFieldT& a, const scalarFieldT& b): e1(a), e2(b) {
 
@@ -101,4 +117,154 @@ const float MaskScalarField::eval(const Vector& pos) const {
 	else {
 		return 0.0f;
 	}
+}
+
+ifs::CutScalarField::CutScalarField(const scalarFieldT& a, const scalarFieldT& b) : a(a), b(b)
+{
+}
+
+const float ifs::CutScalarField::eval(const Vector& pos) const
+{
+	float v1, v2;
+	v1 = a->eval(pos);
+	v2 = -b->eval(pos);
+	if (v1 > v2) {
+		return v1;
+	}
+	else {
+		return v2;
+	}
+}
+
+ifs::pyroclasticScalarField::pyroclasticScalarField(const scalarFieldT& a, int N, float r, Vector xt, float f, float fj) :
+	a(a),
+	N(N),
+	r(r),
+	xt(xt),
+	f(f),
+	fj(fj)
+{
+}
+
+const float ifs::pyroclasticScalarField::eval(const Vector& pos) const
+{
+	float val = a->eval(pos);
+	Vector cpt = pos - val * a->grad(pos);
+
+	float toAdd = 0.0f;
+	for (int i = 0; i < N; i++) {
+		Vector temp = (cpt - xt) * f * pow(fj, i);
+		toAdd += pow(r, i) * db::perlin(temp.X(), temp.Y(), temp.Z());
+	}
+	toAdd *= (1 - r) / (1 - pow(r, N));
+
+	return val + fabs(toAdd);
+}
+
+ifs::addGuideParticaleScalarField::addGuideParticaleScalarField(Vector u, int N, float r, Vector xt, float f, float fj, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz) :
+	N(N),
+	r(r),
+	xt(xt),
+	f(f),
+	fj(fj)
+{
+
+	Vector startpos = u - Vector(deltax * Nx / 2.0f, deltay * Ny / 2.0f, deltaz * Nz / 2.0f);
+	grid = new VolumeGrid<float>(Nx, Ny, Nz, deltax, deltay, deltaz, startpos);
+	float pscale = 1.0f;
+
+
+	for (int k = 0; k < Nz; k++) {
+		for (int j = 0; j < Ny; j++) {
+			for (int i = 0; i < Nx; i++) {
+				Vector pos(i * deltax + startpos[0], j * deltay + startpos[1], k * deltaz + startpos[2]);
+				float falloff = (pos - u).magnitude() / pscale;
+
+				if (1.0f - falloff > 1.0f) {
+					falloff = 1.0f - falloff;
+				} else if (1.0f - falloff < 0.0f) {
+					falloff = 0.0f;
+				}
+
+
+				float toAdd = 0.0f;
+				for (int q = 0; q < N; q++) {
+					Vector temp = (pos - xt) * f * pow(fj, q);
+					toAdd += pow(r, q) * db::perlin(temp.X(), temp.Y(), temp.Z());
+				}
+				toAdd *= (1 - r) / (1 - pow(r, N));
+
+				//cout << "testing " << fabs(toAdd) * falloff << endl;
+
+
+				grid->set(i, j, k, toAdd * falloff);
+			}
+		}
+	}
+
+}
+
+const float ifs::addGuideParticaleScalarField::eval(const Vector& pos) const
+{
+	return grid->eval(pos);
+}
+
+ifs::wispScalarField::wispScalarField(VolumeParms parms, FSPNParms fspn1, FSPNParms fspn2, Vector guidPos, float density, float pscale, float wisp_displacement, float clump, int wispCount)
+{
+	Vector startpos = guidPos - Vector(parms.dx * parms.Nx / 2.0f, parms.dy * parms.Ny / 2.0f, parms.dz * parms.Nz / 2.0f);
+	grid = new VolumeGrid<float>(parms.Nx, parms.Ny, parms.Nz, parms.dx, parms.dy, parms.dz, startpos);
+	srand(static_cast <unsigned> (time(0)));
+
+	printf("corner of grid: %s\n", startpos.__str__());
+
+	float x = 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
+	float y = 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
+	float z = 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
+
+	for (int w = 0; w < wispCount; w++) {
+
+		float vx = 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
+		float vy = 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
+		float vz = 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
+
+		float corr = 0.5f;
+		x = corr * x + (1 - corr) * vx;
+		y = corr * y + (1 - corr) * vy;
+		z = corr * z + (1 - corr) * vz;
+
+		float radius = sqrt(x * x + y * y + z * z);
+		float xsphere = x / radius;
+		float ysphere = y / radius;
+		float zsphere = z / radius;
+
+		float radial_displacement = pow(fabs(evalFSPN(fspn1,Vector(x,y,z))), clump);
+		xsphere *= radial_displacement;
+		ysphere *= radial_displacement;
+		zsphere *= radial_displacement;
+
+		float xdot = guidPos.X() + xsphere * pscale;
+		float ydot = guidPos.Y() + ysphere * pscale;
+		float zdot = guidPos.Z() + zsphere * pscale;
+
+		float shift = 0.1f;
+
+		float xfsn = evalFSPN(fspn2, Vector(xsphere, ysphere, zsphere)) * wisp_displacement;
+		float yfsn = evalFSPN(fspn2, Vector(xsphere + shift, ysphere + shift, zsphere + shift)) * wisp_displacement;
+		float zfsn = evalFSPN(fspn2, Vector(xsphere - shift, ysphere - shift, zsphere - shift)) * wisp_displacement;
+		xdot += xfsn;
+		ydot += yfsn;
+		zdot += zfsn;
+
+		//cout << "Value of wisp " << w << ": " << floor((xdot - startpos[0]) / parms.dx) << "," << floor((ydot - startpos[1]) / parms.dy) << "," << floor((zdot - startpos[2]) / parms.dz) << endl;
+//		grid->set(static_cast <int>(floor((xdot - startpos[0]) / parms.dx)),
+//			static_cast <int>(floor((ydot - startpos[1]) / parms.dy)),
+	//		static_cast <int>(floor((zdot - startpos[2]) / parms.dz)), density);
+
+		grid->splat(Vector(xdot, ydot, zdot), density);
+	}
+}
+
+const float ifs::wispScalarField::eval(const Vector& pos) const
+{
+	return grid->eval(pos);
 }

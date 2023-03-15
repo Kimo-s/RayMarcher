@@ -16,6 +16,7 @@ namespace ifs {
 		float f = 2.0f;
 		float fj = 1.0f;
 		Vector xt = Vector(0.0, 0.0, 0.0);
+		float A = 1.0f;
 	};
 
 	class FDGradHandler
@@ -182,10 +183,10 @@ namespace ifs {
 		scalarFieldT cut(const scalarFieldT& v2);
 		scalarFieldT translate(const Vector transVec);
 		scalarFieldT scale(float scaleFactor);
-		scalarFieldT pyroclasticNoise(int N, float r, Vector xt, float f, float fj);
+		scalarFieldT pyroclasticNoise(FSPNParms params);
 		scalarFieldT mask();
 		scalarFieldT rotate(Vector u, float theta);
-		scalarFieldT addGuideParticale(Vector u, int N, float r, Vector xt, float f, float fj, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz);
+		scalarFieldT addGuideParticale(Vector u, FSPNParms params, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz);
 		scalarFieldT operator+(const scalarFieldT& second);
 		scalarFieldT addWispParticale(VolumeParms parms, FSPNParms fspn1, FSPNParms fspn2, Vector guidPos, float density, float pscale, float wisp_displacement, float clump, int wispCount);
 	};

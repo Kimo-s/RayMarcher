@@ -154,16 +154,16 @@ void rayMarch(scalarFieldT f, std::vector<VolumeGrid<float>* > DSM, std::vector<
 
 			
 			if (interesect(cameraPosition, c.view(i * dx, j * dy), Vector(-5.0f, -5.0f, -5.0f), Vector(5.0f, 5.0f, 5.0f))) {
-				while (s < sfar && T > 1e-4f) {
+				while (s < sfar) {
 					float res = f->eval(ray);
 					if (res > 0.0f) {
 						float dT = exp(-k * ds * res);
-						Color dtls(1.0f, 1.0f, 1.0f, 1.0f);
+						Color dtls(0.0f, 0.0f, 0.0f, 0.0f);
 						for (int q = 0; q < DSM.size(); q++) {
 							dtls += lightColor[q] * exp(-k * DSM[q]->eval(ray));
 						}
 						Color fieldCol = colField->eval(ray);
-						col += fieldCol * T * ((1.0f - dT) / k) * dtls;
+						col += fieldCol * T * ((1.0f - dT)/k) * dtls;
 						T *= dT;
 					}
 					ray += c.view(i * dx, j * dy) * ds;
@@ -219,26 +219,13 @@ void sym2(scalarFieldT& f, scalarFieldT& g, Vector P, ColorField& curField, Colo
 }
 
 int main() {
-	Color color1(1.0f, 3.0f, 1.0f, 1.0f);
+	Color color1(0.1f, 0.7f, 0.1f, 1.0f);
 	Color color2(5.0f, 1.0f, 1.0f, 1.0f);
 	Color color3(1.0f, 1.0f, 5.0f, 1.0f);
 
-	scalarFieldT h = constantField(0.0f);// = funcField(sphere).translate(Vector(1.0f, 0.0f, 0.0f));
-	/*h = h.addGuideParticale(Vector(0.0f, 0.0f, 0.0f),
-		4, 
-		1.5f,
-		Vector(0.0f, 0.0f, 0.0f),
-		3.0f,
-		1.1f,
-		300,
-		300,
-		300,
-		0.01f,
-		0.01f,
-		0.01f
-		);*/
+	//scalarFieldT h = funcField(sphere);
 
-	h = h.addWispParticale(VolumeParms{ 500, 500, 500, 0.01f, 0.01f, 0.01f, Vector(0.0f, 0.0f, 0.0f) },
+	/*h = h.addWispParticale(VolumeParms{ 500, 500, 500, 0.01f, 0.01f, 0.01f, Vector(0.0f, 0.0f, 0.0f) },
 		FSPNParms{ 1.0f, 5, 2.5f, 3.2f, 1.7f, Vector(0.0f, 0.0f, 0.0f) }, 
 		FSPNParms{ 1.0f, 4, 1.5f, 3.2f, 1.2f, Vector(1.0f, 0.0f, 0.0f) },
 		Vector(0.0f, 0.0, 0.0),
@@ -247,31 +234,28 @@ int main() {
 		2.0f,
 		1.0 / 2.0,
 		10000000
-	);
+	);*/
 	
 
 	//h = gridField(h, 800, 800, 800, 0.0125f, 0.0125f, 0.0125f, Vector(-5.0f, -5.0f, -5.0f));
-	ColorField colField = colorMaskField(h, color1);
-
-	std::vector< VolumeGrid<float>* > dsmMap = {/*&dsmKey, &dsmRim, &dsmFill*/};
-	std::vector< Color > lightColorMap = {/*Color(8.0f, 0.0f, 0.0f, 1.0f), Color(0.0f, 8.0f, 0.0f, 1.0f) , Color(0.0f, 0.0f, 8.0f, 1.0f)*/};
-
+	
 	// Input parameters
 	int width = 1920;
 	int height = 1080;
 	float ds = 0.01f;
 	float sfar = 10.0f;
-	float snear = 2.0f;
-	float k = 7.0f;
+	float snear = 1.0f;
+	float k = 0.3f;
 
 	Camera c;
 	float r = 5.0f;
 	float theta = M_PI / 2.0f;
 	int N = 120;
 	float dt = 2.0f * M_PI / N;
+	//c.setAspectRatio(width / height);
 
 
-	for (int i = 0; i < 120; i++) {
+	/*for (int i = 0; i < 120; i++) {
 		Vector cameraCenter = Vector(cos(theta + i * dt) * r, sin(theta + i * dt) * r, -3.0f);
 		c.setEyeViewUp(cameraCenter, -1.0f * cameraCenter, Vector(0, 0, 1));
 
@@ -279,7 +263,145 @@ int main() {
 		char name[100];
 		sprintf_s(name, 100, "../../exrFiles/out%03d.exr", i + 1);
 		rayMarch(h, dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
-	}
-	
+	}*/
 
+
+	//each parameter change should take 45 frames
+
+	Vector cameraCenter = Vector(0.0f, r, -3.0f);
+	c.setEyeViewUp(cameraCenter, -1.0f * cameraCenter, Vector(0, 0, 1));
+
+	int i = 0;
+	for (int frame = 0; frame < 45; frame++) {
+		
+
+		FSPNParms params = {
+			3.0f,
+			3,
+			1.2f,
+			2.0f,
+			1.0f + frame*0.04f,
+			Vector(0.0, 0.0, 0.0),
+			3.0f
+		};
+
+		scalarFieldT h = constantField(0);
+		h = h.addWispParticale(VolumeParms{ 500, 500, 500, 0.01f, 0.01f, 0.01f, Vector(0.0f, 0.0f, 0.0f) },
+			FSPNParms{ 1.0f, 5, 2.5f, 3.2f, 1.7f, Vector(0.0f, 0.0f, 0.0f) },
+			FSPNParms{ 1.0f, 4, 1.5f, 3.2f, 1.2f, Vector(1.0f, 0.0f, 0.0f) },
+			Vector(0.0f, 0.0, 0.0),
+			0.3f,
+			1.0f,
+			2.0f,
+			1.0 / 2.0,
+			1000000
+		);
+		h = gridField(h, 500, 500, 500, 0.01f, 0.01f, 0.01f, Vector(-2.5f, -2.5f, -2.5f));
+		
+
+
+		VolumeGrid<float> dsmKey(h, Vector(0.0f, 0.0f, 4.0f), 100, 100, 100, 0.05f, 0.05f, 0.05f, Vector(-2.5f, -2.5f, -2.5f));
+		VolumeGrid<float> dsmFill(h, Vector(0.0f, 0.0f, -4.0f), 100, 100, 100, 0.05f, 0.05f, 0.05f, Vector(-2.5f, -2.5f, -2.5f));
+
+		std::vector< VolumeGrid<float>* > dsmMap = {&dsmKey, &dsmFill};
+		std::vector< Color > lightColorMap = {Color(8.0f, 0.1f, 0.1f, 1.0f), Color(0.1f, 0.1f, 8.0f, 1.0f)};
+
+
+		ColorField colField = colorMaskField(h, color1);
+		char name[100];
+		sprintf_s(name, 100, "../../exrFiles/out%03d.exr", i + 1);
+		rayMarch(h, dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
+		i += 1;
+	}
+
+	for (int frame = 0; frame < 45; frame++) {
+
+
+		FSPNParms params = {
+			3.0f + frame * 0.04f,
+			3,
+			1.2f,
+			2.0f,
+			1.0f,
+			Vector(0.0, 0.0, 0.0),
+			3.0f
+		};
+
+		scalarFieldT h = funcField(sphere).pyroclasticNoise(params);
+		h = gridField(h, 500, 500, 500, 0.01f, 0.01f, 0.01f, Vector(-2.5f, -2.5f, -2.5f));
+
+		VolumeGrid<float> dsmKey(h, Vector(0.0f, 0.0f, 4.0f), 100, 100, 100, 0.05f, 0.05f, 0.05f, Vector(-2.5f, -2.5f, -2.5f));
+		VolumeGrid<float> dsmFill(h, Vector(0.0f, 0.0f, -4.0f), 100, 100, 100, 0.05f, 0.05f, 0.05f, Vector(-2.5f, -2.5f, -2.5f));
+
+		std::vector< VolumeGrid<float>* > dsmMap = { &dsmKey, &dsmFill };
+		std::vector< Color > lightColorMap = { Color(8.0f, 0.1f, 0.1f, 1.0f), Color(0.1f, 0.1f, 8.0f, 1.0f) };
+
+
+		ColorField colField = colorMaskField(h, color1);
+		char name[100];
+		sprintf_s(name, 100, "../../exrFiles/out%03d.exr", i + 1);
+		rayMarch(h.mask(), dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
+		i += 1;
+	}
+
+	for (int frame = 0; frame < 45; frame++) {
+
+
+		FSPNParms params = {
+			3.0f,
+			3,
+			1.2f,
+			2.0f + frame * 0.04f,
+			1.0f,
+			Vector(0.0, 0.0, 0.0),
+			3.0f
+		};
+
+		scalarFieldT h = funcField(sphere).pyroclasticNoise(params);
+		h = gridField(h, 500, 500, 500, 0.01f, 0.01f, 0.01f, Vector(-2.5f, -2.5f, -2.5f));
+
+		VolumeGrid<float> dsmKey(h, Vector(0.0f, 0.0f, 4.0f), 100, 100, 100, 0.05f, 0.05f, 0.05f, Vector(-2.5f, -2.5f, -2.5f));
+		VolumeGrid<float> dsmFill(h, Vector(0.0f, 0.0f, -4.0f), 100, 100, 100, 0.05f, 0.05f, 0.05f, Vector(-2.5f, -2.5f, -2.5f));
+
+		std::vector< VolumeGrid<float>* > dsmMap = { &dsmKey, &dsmFill };
+		std::vector< Color > lightColorMap = { Color(8.0f, 0.1f, 0.1f, 1.0f), Color(0.1f, 0.1f, 8.0f, 1.0f) };
+
+
+		ColorField colField = colorMaskField(h, color1);
+		char name[100];
+		sprintf_s(name, 100, "../../exrFiles/out%03d.exr", i + 1);
+		rayMarch(h, dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
+		i += 1;
+
+	}
+
+	for (int frame = 0; frame < 45; frame++) {
+
+
+		FSPNParms params = {
+			3.0f,
+			3,
+			1.2f + frame * 0.04f,
+			2.0f,
+			1.0f,
+			Vector(0.0, 0.0, 0.0),
+			3.0f
+		};
+
+		scalarFieldT h = funcField(sphere).pyroclasticNoise(params);
+		h = gridField(h, 500, 500, 500, 0.01f, 0.01f, 0.01f, Vector(-2.5f, -2.5f, -2.5f));
+
+		VolumeGrid<float> dsmKey(h, Vector(0.0f, 0.0f, 4.0f), 100, 100, 100, 0.05f, 0.05f, 0.05f, Vector(-2.5f, -2.5f, -2.5f));
+		VolumeGrid<float> dsmFill(h, Vector(0.0f, 0.0f, -4.0f), 100, 100, 100, 0.05f, 0.05f, 0.05f, Vector(-2.5f, -2.5f, -2.5f));
+
+		std::vector< VolumeGrid<float>* > dsmMap = { &dsmKey, &dsmFill };
+		std::vector< Color > lightColorMap = { Color(8.0f, 0.1f, 0.1f, 1.0f), Color(0.1f, 0.1f, 8.0f, 1.0f) };
+
+
+		ColorField colField = colorMaskField(h, color1);
+		char name[100];
+		sprintf_s(name, 100, "../../exrFiles/out%03d.exr", i + 1);
+		rayMarch(h, dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
+		i += 1;
+	}
 }

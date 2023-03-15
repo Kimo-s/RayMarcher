@@ -73,9 +73,12 @@ namespace ifs
 			this->startPos = c.startPos;
 			this->defaultValue = c.defaultValue;
 			//data(new T*[](c.data));
+			this->data = c.data.release();
 		}
 
-
+		~VolumeGrid() {
+			data.reset();
+		};
 		VolumeGrid(int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 		VolumeGrid(scalarFieldT vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 		VolumeGrid(scalarFieldT vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);

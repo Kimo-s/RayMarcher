@@ -125,13 +125,9 @@ namespace ifs {
 	class pyroclasticScalarField : public FieldBase<float> {
 	public:
 		const scalarFieldT a;
-		int N;
-		float r;
-		Vector xt;
-		float f;
-		float fj;
+		FSPNParms params;
 
-		pyroclasticScalarField(const scalarFieldT& a, int N, float r, Vector xt, float f, float fj);
+		pyroclasticScalarField(const scalarFieldT& a, FSPNParms params);
 
 		const float eval(const Vector& pos) const;
 
@@ -140,13 +136,8 @@ namespace ifs {
 	class addGuideParticaleScalarField : public FieldBase<float> {
 	public:
 		VolumeGrid<float>* grid;
-		int N;
-		float r;
-		Vector xt;
-		float f;
-		float fj;
 
-		addGuideParticaleScalarField(Vector u, int N, float r, Vector xt, float f, float fj, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz);
+		addGuideParticaleScalarField(Vector u, FSPNParms params, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz);
 
 		const float eval(const Vector& pos) const;
 

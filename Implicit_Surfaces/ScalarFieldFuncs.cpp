@@ -2,7 +2,10 @@
 #include "FieldClasses.h"
 #include "VolumeClasses.h"
 #include "Vector.h"
-#include<cstdlib>
+#include <cstdlib>
+#include <cassert>
+#include <chrono>
+#include <random>
 
 #define DB_PERLIN_IMPL
 #include "db_perlin.hpp"
@@ -136,13 +139,9 @@ const float ifs::CutScalarField::eval(const Vector& pos) const
 	}
 }
 
-ifs::pyroclasticScalarField::pyroclasticScalarField(const scalarFieldT& a, int N, float r, Vector xt, float f, float fj) :
-	a(a),
-	N(N),
-	r(r),
-	xt(xt),
-	f(f),
-	fj(fj)
+ifs::pyroclasticScalarField::pyroclasticScalarField(const scalarFieldT& a, FSPNParms params) :
+	params(params),
+	a(a)
 {
 }
 
@@ -152,21 +151,16 @@ const float ifs::pyroclasticScalarField::eval(const Vector& pos) const
 	Vector cpt = pos - val * a->grad(pos);
 
 	float toAdd = 0.0f;
-	for (int i = 0; i < N; i++) {
-		Vector temp = (cpt - xt) * f * pow(fj, i);
-		toAdd += pow(r, i) * db::perlin(temp.X(), temp.Y(), temp.Z());
+	for (int i = 0; i < params.N; i++) {
+		Vector temp = (cpt - params.xt) * params.f * pow(params.fj, i);
+		toAdd += pow(params.roughness, i) * db::perlin(temp.X(), temp.Y(), temp.Z());
 	}
-	toAdd *= (1 - r) / (1 - pow(r, N));
+	toAdd *= (1 - params.roughness) / (1 - pow(params.roughness, params.N));
 
-	return val + fabs(toAdd);
+	return val + pow(fabs(toAdd), params.gamma) * params.A;
 }
 
-ifs::addGuideParticaleScalarField::addGuideParticaleScalarField(Vector u, int N, float r, Vector xt, float f, float fj, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz) :
-	N(N),
-	r(r),
-	xt(xt),
-	f(f),
-	fj(fj)
+ifs::addGuideParticaleScalarField::addGuideParticaleScalarField(Vector u, FSPNParms params, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz)
 {
 
 	Vector startpos = u - Vector(deltax * Nx / 2.0f, deltay * Ny / 2.0f, deltaz * Nz / 2.0f);
@@ -188,16 +182,16 @@ ifs::addGuideParticaleScalarField::addGuideParticaleScalarField(Vector u, int N,
 
 
 				float toAdd = 0.0f;
-				for (int q = 0; q < N; q++) {
-					Vector temp = (pos - xt) * f * pow(fj, q);
-					toAdd += pow(r, q) * db::perlin(temp.X(), temp.Y(), temp.Z());
+				for (int q = 0; q < params.N; q++) {
+					Vector temp = (pos - params.xt) * params.f * pow(params.fj, q);
+					toAdd += pow(params.roughness, q) * db::perlin(temp.X(), temp.Y(), temp.Z());
 				}
-				toAdd *= (1 - r) / (1 - pow(r, N));
+				toAdd *= (1 - params.roughness) / (1 - pow(params.roughness, params.N));
 
 				//cout << "testing " << fabs(toAdd) * falloff << endl;
 
 
-				grid->set(i, j, k, toAdd * falloff);
+				grid->set(i, j, k, pow(fabs(toAdd),params.gamma) * falloff);
 			}
 		}
 	}
@@ -216,16 +210,25 @@ ifs::wispScalarField::wispScalarField(VolumeParms parms, FSPNParms fspn1, FSPNPa
 	srand(static_cast <unsigned> (time(0)));
 
 	printf("corner of grid: %s\n", startpos.__str__());
+	std::mt19937 g1(static_cast <unsigned> (time(0)));
 
-	float x = 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
-	float y = 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
-	float z = 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
+	std::default_random_engine generator;
+	std::uniform_real_distribution<double> distribution(-1.0, 1.0);
+
+
+	/*float x = -1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
+	float y = -1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
+	float z = -1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));*/
+
+	float x = distribution(generator);
+	float y = distribution(generator);
+	float z = distribution(generator);
 
 	for (int w = 0; w < wispCount; w++) {
 
-		float vx = 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
-		float vy = 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
-		float vz = 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
+		float vx = distribution(generator);
+		float vy = distribution(generator);
+		float vz = distribution(generator);
 
 		float corr = 0.5f;
 		x = corr * x + (1 - corr) * vx;

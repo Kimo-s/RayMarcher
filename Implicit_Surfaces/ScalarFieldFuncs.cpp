@@ -6,6 +6,7 @@
 #include <cassert>
 #include <chrono>
 #include <random>
+#include <omp.h>
 
 #define DB_PERLIN_IMPL
 #include "db_perlin.hpp"
@@ -14,14 +15,16 @@
 using namespace ifs;
 
 float evalFSPN(FSPNParms parm, Vector pos) {
-	float toAdd = 0.0f;
-	for (int q = 0; q < parm.N; q++) {
-		Vector temp = (pos - parm.xt) * parm.f * pow(parm.fj, q);
+	Vector temp = (pos - parm.xt) * parm.f;
+	float toAdd = db::perlin(temp.X(), temp.Y(), temp.Z());
+
+	for (int q = 1; q <= parm.N; q++) {
+		temp = (pos - parm.xt) * parm.f * pow(parm.fj, q);
 		toAdd += pow(parm.roughness, q) * db::perlin(temp.X(), temp.Y(), temp.Z());
 	}
 	toAdd *= (1 - parm.roughness) / (1 - pow(parm.roughness, parm.N));
 
-	return toAdd;
+	return pow(toAdd, parm.gamma) * parm.A;
 }
 
 AddScalarFields::AddScalarFields(const scalarFieldT& a, const scalarFieldT& b): e1(a), e2(b) {
@@ -160,38 +163,29 @@ const float ifs::pyroclasticScalarField::eval(const Vector& pos) const
 	return val + pow(fabs(toAdd), params.gamma) * params.A;
 }
 
-ifs::addGuideParticaleScalarField::addGuideParticaleScalarField(Vector u, FSPNParms params, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz)
+ifs::addGuideParticaleScalarField::addGuideParticaleScalarField(Vector u, FSPNParms params, float fade, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz)
 {
 
 	Vector startpos = u - Vector(deltax * Nx / 2.0f, deltay * Ny / 2.0f, deltaz * Nz / 2.0f);
 	grid = new VolumeGrid<float>(Nx, Ny, Nz, deltax, deltay, deltaz, startpos);
 	float pscale = 1.0f;
 
-
+	#pragma omp parallel for schedule(dynamic) num_threads(20) collapse(2)
 	for (int k = 0; k < Nz; k++) {
 		for (int j = 0; j < Ny; j++) {
 			for (int i = 0; i < Nx; i++) {
 				Vector pos(i * deltax + startpos[0], j * deltay + startpos[1], k * deltaz + startpos[2]);
-				float falloff = (pos - u).magnitude() / pscale;
+				float falloff = pow((pos - u).magnitude(), fade) / pscale;
 
 				if (1.0f - falloff > 1.0f) {
-					falloff = 1.0f - falloff;
+					falloff = 1.0f;
 				} else if (1.0f - falloff < 0.0f) {
 					falloff = 0.0f;
 				}
 
+				float toAdd = evalFSPN(params, pos);
 
-				float toAdd = 0.0f;
-				for (int q = 0; q < params.N; q++) {
-					Vector temp = (pos - params.xt) * params.f * pow(params.fj, q);
-					toAdd += pow(params.roughness, q) * db::perlin(temp.X(), temp.Y(), temp.Z());
-				}
-				toAdd *= (1 - params.roughness) / (1 - pow(params.roughness, params.N));
-
-				//cout << "testing " << fabs(toAdd) * falloff << endl;
-
-
-				grid->set(i, j, k, pow(fabs(toAdd),params.gamma) * falloff);
+				grid->set(i, j, k, toAdd * falloff);
 			}
 		}
 	}
@@ -207,18 +201,9 @@ ifs::wispScalarField::wispScalarField(VolumeParms parms, FSPNParms fspn1, FSPNPa
 {
 	Vector startpos = guidPos - Vector(parms.dx * parms.Nx / 2.0f, parms.dy * parms.Ny / 2.0f, parms.dz * parms.Nz / 2.0f);
 	grid = new VolumeGrid<float>(parms.Nx, parms.Ny, parms.Nz, parms.dx, parms.dy, parms.dz, startpos);
-	srand(static_cast <unsigned> (time(0)));
-
-	printf("corner of grid: %s\n", startpos.__str__());
-	std::mt19937 g1(static_cast <unsigned> (time(0)));
 
 	std::default_random_engine generator;
 	std::uniform_real_distribution<double> distribution(-1.0, 1.0);
-
-
-	/*float x = -1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
-	float y = -1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));
-	float z = -1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX / 2.0f));*/
 
 	float x = distribution(generator);
 	float y = distribution(generator);
@@ -270,4 +255,26 @@ ifs::wispScalarField::wispScalarField(VolumeParms parms, FSPNParms fspn1, FSPNPa
 const float ifs::wispScalarField::eval(const Vector& pos) const
 {
 	return grid->eval(pos);
+}
+
+const float ifs::planeScalarField::eval(const Vector& pos) const
+{
+
+	if (fabs(pos.X()) > 2.0) {
+		return 0.0f;
+	}
+	else if (fabs(pos.Y()) > 2.0) {
+		return 0.0f;
+	}
+
+
+	float val = (pos - center) * normal;
+	Vector cpt = pos - val * normal;
+
+	float noise = evalFSPN(params, cpt);
+	if (noise < 0.0f) {
+		noise *= 0.2f;
+	}
+
+	return val + noise;
 }

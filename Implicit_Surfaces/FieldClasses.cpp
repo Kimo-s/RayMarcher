@@ -216,6 +216,11 @@ scalarFieldT ifs::constantField(float constant)
 	return scalarFieldT(new constScalarField(constant));
 }
 
+scalarFieldT ifs::plane(Vector normal, Vector center, FSPNParms params)
+{
+	return scalarFieldT(new planeScalarField(normal, center, params));
+}
+
 scalarFieldT ifs::gridField(scalarFieldT& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos)
 {
 	return scalarFieldT(new GridScalarField(vol, Nx, Ny, Nz, deltax, deltay, deltaz, startPos));
@@ -258,9 +263,9 @@ scalarFieldT scalarFieldT::scale(float scaleFactor) { return scalarFieldT(new Sc
 scalarFieldT ifs::scalarFieldT::pyroclasticNoise(FSPNParms params) { return scalarFieldT( new pyroclasticScalarField(*this, params)); }
 scalarFieldT scalarFieldT::mask() { return scalarFieldT(new MaskScalarField(*this)); };
 scalarFieldT scalarFieldT::rotate(Vector u, float theta) { return scalarFieldT(new RotateScalarField(*this, u, theta)); }
-scalarFieldT ifs::scalarFieldT::addGuideParticale(Vector u, FSPNParms params, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz)
+scalarFieldT ifs::scalarFieldT::addGuideParticale(Vector u, FSPNParms params, float fade, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz)
 {
-	return this->max(scalarFieldT(new addGuideParticaleScalarField( u, params, Nx, Ny, Nz, deltax, deltay, deltaz)));
+	return this->max(scalarFieldT(new addGuideParticaleScalarField(u, params, fade, Nx, Ny, Nz, deltax, deltay, deltaz)));
 }
 scalarFieldT ifs::scalarFieldT::addWispParticale(VolumeParms parms, FSPNParms fspn1, FSPNParms fspn2, Vector guidPos, float density, float pscale, float wisp_displacement, float clump, int wispCount)
 {

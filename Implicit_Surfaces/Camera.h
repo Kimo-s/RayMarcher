@@ -19,6 +19,7 @@ class Camera
     const ifs::Vector& eye() const  { return position; }
     const ifs::Vector& view() const { return axis_view; }
     const ifs::Vector& up() const   { return axis_up; }
+    const ifs::Vector& right() const { return axis_right; }
 
     // view direction of a pixel at the fractional position x,y.
     // Nominally 0 <= x <= 1 and 0 <= y <= 1 for the primary fov,

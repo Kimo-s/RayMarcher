@@ -16,7 +16,9 @@ namespace ifs {
 
 		virtual T eval(float x, float y, float z) {
 			printf("The volumebase eval method called!\n");
-			return 0.0f;
+			T value{};
+			value = value - value;
+			return value;
 		};
 
 		T operator()(float x, float y, float z) {

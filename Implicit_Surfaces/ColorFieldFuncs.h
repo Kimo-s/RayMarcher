@@ -60,7 +60,6 @@ namespace ifs {
 		ColorMaskField(const scalarFieldT& f, Color col);
 
 		const Color eval(const Vector& pos) const;
-
 	};
 
 	class GridColorField : public FieldBase<Color> {

@@ -186,7 +186,7 @@ namespace ifs {
 		scalarFieldT pyroclasticNoise(FSPNParms params);
 		scalarFieldT mask();
 		scalarFieldT rotate(Vector u, float theta);
-		scalarFieldT addGuideParticale(Vector u, FSPNParms params, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz);
+		scalarFieldT addGuideParticale(Vector u, FSPNParms params, float fade, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz);
 		scalarFieldT operator+(const scalarFieldT& second);
 		scalarFieldT addWispParticale(VolumeParms parms, FSPNParms fspn1, FSPNParms fspn2, Vector guidPos, float density, float pscale, float wisp_displacement, float clump, int wispCount);
 	};
@@ -222,6 +222,7 @@ namespace ifs {
 	scalarFieldT gridField(int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 
 	scalarFieldT constantField(float constant);
+	scalarFieldT plane(Vector normal, Vector center, FSPNParms params);
 	scalarFieldT gridField(scalarFieldT& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 	scalarFieldT gridField(scalarFieldT& vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 	scalarFieldT gridField(const char* filename, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);

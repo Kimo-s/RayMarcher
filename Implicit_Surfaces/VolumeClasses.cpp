@@ -8,6 +8,7 @@
 #include <memory>
 #include <omp.h>
 #include <limits>
+#define M_PI 3.14159265358979323846
 
 template<>
 ifs::VolumeGrid<float>::VolumeGrid<float>(int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos) {
@@ -19,11 +20,13 @@ ifs::VolumeGrid<float>::VolumeGrid<float>(int Nx, int Ny, int Nz, float deltax, 
 	this->deltaz = deltaz;
 	this->startPos = startPos;
 	blocksize = (Nx * Ny * Nz) / 64;
+	this->defaultValue = 0.0f;
 	data = make_unique<float* []>((Nx * Ny * Nz) / 64);
 	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
 		data[p] = NULL;
 	}
 }
+
 
 // Volume Grid
 ifs::VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos) {
@@ -35,6 +38,7 @@ ifs::VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, int Nx, int Ny, int 
 	this->deltaz = deltaz;
 	this->startPos = startPos;
 	blocksize = (Nx * Ny * Nz) / 64;
+	this->defaultValue = 0.0f;
 	data = make_unique<float* []>((Nx * Ny * Nz) / 64);
 	//data = new float* [(Nx * Ny * Nz) / 64];
 	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
@@ -57,6 +61,40 @@ ifs::VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, int Nx, int Ny, int 
 	printf("\n");
 }
 
+template<>
+ifs::VolumeGrid<Vector>::VolumeGrid<Vector>(VectorField vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos)
+{
+	this->Nx = Nx;
+	this->Ny = Ny;
+	this->Nz = Nz;
+	this->deltax = deltax;
+	this->deltay = deltay;
+	this->deltaz = deltaz;
+	this->startPos = startPos;
+	blocksize = (Nx * Ny * Nz) / 64;
+	data = make_unique<Vector* []>((Nx * Ny * Nz) / 64);
+	//data = new float* [(Nx * Ny * Nz) / 64];
+	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
+		data[p] = NULL;
+	}
+
+	int finished = 0;
+
+#pragma omp parallel for schedule(dynamic) num_threads(20) shared(finished) 
+	for (int k = 0; k < Nz; k++) {
+		for (int j = 0; j < Ny; j++) {
+			for (int i = 0; i < Nx; i++) {
+				Vector pos = Vector(i * deltax + startPos[0], j * deltay + startPos[1], k * deltaz + startPos[2]);
+				set(i, j, k, vol->eval(pos));
+			}
+		}
+		finished += 1;
+		printf("\rCreating Vector field grid from vectorField: %0.2f%%", (finished + 1) * 1.0f / Nz);
+	}
+	printf("\n");
+}
+
+
 
 float rayMarchLight(scalarFieldT f, Vector point, Vector lightPos, float ds) {
 
@@ -78,8 +116,7 @@ float rayMarchLight(scalarFieldT f, Vector point, Vector lightPos, float ds) {
 	return T;
 }
 
-
-// Deep shadow maps
+// Deep shadow maps 
 VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos) {
 	this->Nx = Nx;
 	this->Ny = Ny;
@@ -102,11 +139,63 @@ VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, Vector lightPos, int Nx, 
 		for (int j = 0; j < Ny; j++) {
 			for (int i = 0; i < Nx; i++) {
 				Vector pos = Vector(i * deltax + startPos[0], j * deltay + startPos[1], k * deltaz + startPos[2]);
-				set(i, j, k, rayMarchLight(vol, pos, lightPos, 0.01f));
+				set(i, j, k, rayMarchLight(vol, pos, lightPos, 0.005f));
 			}
 		}
 		finished += 1;
 		printf("\rCreating light DSM: %0.2f%%", (finished + 1) * 1.0f / Nz);
+	}
+	printf("\n");
+}
+
+// Deep shadow maps on frustum shaped grid
+VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, Vector lightPos, int Nx, int Ny, int Nz, float nearPlane, float farPlane, float fov) {
+	this->Nx = Nx;
+	this->Ny = Ny;
+	this->Nz = Nz;
+	this->deltax = deltax;
+	this->deltay = deltay;
+	this->deltaz = deltaz;
+	this->startPos = startPos;
+	blocksize = (Nx * Ny * Nz) / 64;
+	data = make_unique<float* []>((Nx * Ny * Nz) / 64);
+	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
+		data[p] = NULL;
+	}
+
+	int finished = 0;
+
+	int width = Nx;
+	int height = Ny;
+	int depth = Nz;
+
+	float a = 1.0f * width / height;
+
+	Camera c;
+	c.setAspectRatio(a);
+	c.setFov(fov);
+	c.setEyeViewUp(lightPos, -1.0f * lightPos, Vector(1.0, 0.0, 0.0));
+	c.setFarPlane(farPlane);
+	c.setNearPlane(nearPlane);
+
+	setUpCamera(c);
+
+	#pragma omp parallel for schedule(dynamic) num_threads(20) shared(finished)
+	for (int j = 0; j < Ny; j++) {
+		for (int i = 0; i < Nx; i++) {
+			float T = 0.0f;
+
+			for (int k = 0; k < Nz; k++) {
+				Vector ray = getFrustPos(i, j, k);
+				float res = vol->eval(ray);
+				if (res > 0.0f) {
+					T += res;
+				}
+				set(i, j, k, T);
+			}
+		}
+		finished += 1;
+		printf("\rCreating Frustusm light DSM: %0.2f%%", (finished + 1) * 1.0f / Ny);
 	}
 	printf("\n");
 }
@@ -430,77 +519,6 @@ ifs::VolumeGrid<float>::VolumeGrid<float>(const char* filename, int Nx, int Ny, 
 	printf("\n");
 
 	finished = 0;
-
-	 
-	//#pragma omp parallel for schedule(dynamic) num_threads(20) shared(finished)
-	//for (int k = 0; k < Nz; k++) {
-	//	for (int i = 0; i < Nx; i++) {
-
-	//		bool exitwhile = false;
-	//		int numOfIntersactions = 0;
-	//		int lasti = 0;
-
-	//		Vector nextpos = Vector(i * deltax + startPos[0], deltay + startPos[1], k * deltaz + startPos[2]);
-	//		Vector pos = Vector(i * deltax + startPos[0], startPos[1], k * deltaz + startPos[2]);
-	//		Vector d = (nextpos - pos).unitvector();
-
-
-	//		while (!exitwhile) {
-	//			bool intersacted = false;
-	//			double t = numeric_limits<double>::max();
-	//			double oldt;
-
-
-	//			for (int ind2 = 0; ind2 < loader.LoadedIndices.size(); ind2 += 3) {
-	//				Vector A = Vector(loader.LoadedVertices[loader.LoadedIndices[ind2]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind2]].Position.Y, loader.LoadedVertices[loader.LoadedIndices[ind2]].Position.Z);
-	//				Vector B = Vector(loader.LoadedVertices[loader.LoadedIndices[ind2 + 1]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind2 + 1]].Position.Y, loader.LoadedVertices[loader.LoadedIndices[ind2 + 1]].Position.Z);
-	//				Vector C = Vector(loader.LoadedVertices[loader.LoadedIndices[ind2 + 2]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind2 + 2]].Position.Y, loader.LoadedVertices[loader.LoadedIndices[ind2 + 2]].Position.Z);
-
-	//				double tn;
-	//				bool test;
-	//				test = rayTriangleIntersect(pos, d, A, B, C, tn);
-	//				if (test && tn > 0.0f && tn < t) {
-	//					intersacted = true;
-	//					oldt = t;
-	//					t = tn;
-	//				}
-	//			}
-	//			//std::cout << "value of intersacted " << intersacted  << " Value of t = " << t << endl;
-	//			if (!intersacted) {
-	//				exitwhile = true;
-	//			}
-	//			else if (intersacted && t != numeric_limits<float>::max()) {
-	//				Vector pointOnTriang = pos + t * d;
-	//				int hiti = static_cast<int>(floor((pointOnTriang.Y() - startPos[1]) / deltay));
-	//				//Vector hit2detect = pos + oldt * d;
-	//				//int hit2 = static_cast<int>(ceil((hit2detect.X() - startPos[0]) / deltax));
-	//				//if (hit2 == hiti) {
-	//				//	//printf("lol %d %d\n", hit2, lasti);
-	//				//	set(hiti, j, k, fabs(get(hiti, j, k)));
-	//				//	set(hit2, j, k, fabs(get(hit2, j, k)));
-	//				//} 
-	//				//ranges.push_back(hiti+1);
-	//				if (numOfIntersactions % 2 == 1) {
-	//					for (int q = lasti; q < hiti; q++) {
-	//						set(i, q, k, fabs(get(i, q, k)));
-	//					}
-	//				}
-	//				else {
-	//					for (int q = lasti; q < hiti; q++) {
-	//						set(i, q, k, -fabs(get(q, i, k)));
-	//					}
-	//				}
-	//				pos = pointOnTriang + 1.0e-5 * d;
-	//				//pos.set(pos.X(), (hiti + 1) * deltay + startPos[1], pos.Z());
-	//				lasti = hiti;
-	//				numOfIntersactions += 1;
-	//			}
-	//		}
-	//	}
-	//	finished += 1;
-	//	printf("\rChecking intersections along Y axis (%s): %0.2f%%", filename, (finished + 1) * 1.0f / Nz);
-	//}
-	//printf("\n");
 }
 
 ifs::VolumeColorGrid::VolumeColorGrid(ColorField vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos)

@@ -5,6 +5,8 @@
 #include "Color.h"
 #include <string>
 #include <memory>
+#include <math.h>
+#include "Camera.h"
 
 using namespace ifs;
 using namespace std;
@@ -40,6 +42,7 @@ namespace ifs
 
 	class ScalarField;
 	class scalarFieldT;
+	class VectorField;
 	class ColorField;
 	
 
@@ -50,11 +53,12 @@ namespace ifs
 		float deltax = 0.1f;
 		float deltay = 0.1f;
 		float deltaz = 0.1f;
-		T defaultValue = 0.0f;
+		T defaultValue{};
 		int Nx, Ny, Nz;
 		Vector startPos;
 		int blocksize;
 		std::unique_ptr<T* []> data;
+		Camera c;
 
 		VolumeGrid() {
 			Nx = 1;
@@ -72,17 +76,23 @@ namespace ifs
 			this->deltaz = c.deltaz;
 			this->startPos = c.startPos;
 			this->defaultValue = c.defaultValue;
-			//data(new T*[](c.data));
 			this->data = c.data.release();
 		}
 
 		~VolumeGrid() {
+			for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
+				delete data[p];
+			}
 			data.reset();
 		};
 		VolumeGrid(int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
+
 		VolumeGrid(scalarFieldT vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
-		VolumeGrid(scalarFieldT vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
-		VolumeGrid(const char* filename, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
+		VolumeGrid(VectorField vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
+
+		VolumeGrid(scalarFieldT vol, Vector lightPos, int Nx, int Ny, int Nz, float nearPlane, float farPlane, float fov); // Frustum shaped light deep shadow map
+		VolumeGrid(scalarFieldT vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos); // Light shadow map
+		VolumeGrid(const char* filename, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos); // Triangle Mesh to SDF
 
 		T eval(Vector pos) {
 			return eval(pos[0], pos[1], pos[2]);
@@ -101,7 +111,9 @@ namespace ifs
 			}*/
 
 			float weight[3];
-			T value = 0.0f;
+			//T value = 0.0f;
+			T value{};
+			value = value - value;
 
 			for (int i = 0; i < 2; ++i) {
 				int cur_x = lowerLeft[0] + i;
@@ -200,6 +212,70 @@ namespace ifs
 			else {
 				return data[block][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4];
 			}
+		}
+
+		T evalFrust(Vector pos) {
+			float x, y, z;
+			double u, v;
+			c.XY(pos, u, v);
+
+			x = (0.5) * ((u / tan(c.fov() / 2)) + 1);
+			y = (0.5) * ((v * c.aspectRatio() / tan(c.fov() / 2)) + 1);
+			z = ((pos - c.eye()).magnitude() - c.nearPlane()) / (c.farPlane() - c.nearPlane());
+
+			Vector p(x * Nx, y * Ny, z * Nz);
+			Vector lowerLeft(static_cast<int>(floor(x*Nx)), static_cast<int>(floor(y*Ny)), static_cast<int>(floor(z*Nz)));
+
+			float weight[3];
+			T value{};
+			value = value - value;
+
+			for (int i = 0; i < 2; ++i) {
+				int cur_x = lowerLeft[0] + i;
+				weight[0] = 1.0f - abs(p[0] - cur_x);
+				for (int j = 0; j < 2; ++j)
+				{
+					int cur_y = lowerLeft[1] + j;
+					weight[1] = 1.0 - std::abs(p[1] - cur_y);
+					for (int k = 0; k <= 1; ++k)
+					{
+						int cur_z = lowerLeft[2] + k;
+						weight[2] = 1.0 - std::abs(p[2] - cur_z);
+						value += weight[0] * weight[1] * weight[2] * get(cur_x, cur_y, cur_z);
+					}
+				}
+			}
+
+			return value;
+		}
+
+		void setUpCamera(int width, int height, float dnear, float dfar,
+			float f, Vector cameraCenter) {
+
+			float a = 1.0f * width / height;
+
+			Camera c;
+			c.setAspectRatio(a);
+			c.setFov(f);
+			c.setEyeViewUp(cameraCenter, -1.0f * cameraCenter, Vector(1.0, 0.0, 0.0));
+			c.setFarPlane(dfar);
+			c.setNearPlane(dnear);
+		}
+
+		void setUpCamera(Camera t) {
+			c = t;
+		}
+
+		Vector getFrustPos(int i, int j, int k) const {
+
+			float u, v;
+			u = (2 * (1.0f * i / Nx) - 1) * tan(c.fov() / 2);
+			v = (2 * (1.0f * j / Nx) - 1) * tan(c.fov() / 2)/c.aspectRatio();
+			float z = c.nearPlane() + (1.0 * k / Nz) * (c.farPlane() - c.nearPlane());
+
+			Vector q = u * c.right() + v * c.up();
+
+			return c.eye() + (c.view() + q).unitvector() * z;
 		}
 	};
 

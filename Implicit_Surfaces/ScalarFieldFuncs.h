@@ -18,6 +18,21 @@ namespace ifs {
 		};
 	};
 
+	class planeScalarField : public FieldBase<float> {
+	public:
+		Vector normal, center;
+		//float thickness, width, height;
+		FSPNParms params;
+
+		planeScalarField(Vector normal, Vector center, FSPNParms params) :
+			normal(normal.unitvector()),
+			center(center),
+			params(params)
+		{};
+
+		const float eval(const Vector& pos) const;
+	};
+
 
 	class AddScalarFields : public FieldBase<float> {
 	public:
@@ -116,6 +131,9 @@ namespace ifs {
 		FSPNParms fspn1;
 		FSPNParms fspn2;
 
+		~wispScalarField() {
+			delete grid;
+		}
 		wispScalarField(VolumeParms parms, FSPNParms fspn1, FSPNParms fspn2, Vector guidPos, float density, float pscale, float wisp_displacement, float clump, int wispCount);
 
 		const float eval(const Vector& pos) const;
@@ -137,7 +155,10 @@ namespace ifs {
 	public:
 		VolumeGrid<float>* grid;
 
-		addGuideParticaleScalarField(Vector u, FSPNParms params, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz);
+		~addGuideParticaleScalarField() {
+			delete grid;
+		}
+		addGuideParticaleScalarField(Vector u, FSPNParms params, float fade, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz);
 
 		const float eval(const Vector& pos) const;
 
@@ -165,6 +186,9 @@ namespace ifs {
 	public:
 		VolumeGrid<float>* grid;
 
+		~GridScalarField() {
+			delete grid;
+		}
 		GridScalarField(int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 		GridScalarField(scalarFieldT& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 		GridScalarField(scalarFieldT& vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);

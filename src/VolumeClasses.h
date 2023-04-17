@@ -81,7 +81,10 @@ namespace ifs
 
 		~VolumeGrid() {
 			for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
-				delete data[p];
+				//cout << "Deleting array at " << p << endl;
+				if (data[p] != NULL) {
+					delete [] data[p];
+				}
 			}
 			data.reset();
 		};
@@ -167,7 +170,7 @@ namespace ifs
 
 		int getBlock(int i, int j, int k) {
 			int toRet = i + j * Nx / 4 + k * Nx / 4 * Ny / 4;
-			if (i < 0 || j < 0 || k < 0 || i >= Nx / 4 || j >= Ny / 4 || k >= Nz / 4 || toRet < 0 || toRet > blocksize) {
+			if (i < 0 || j < 0 || k < 0 || i >= Nx / 4 || j >= Ny / 4 || k >= Nz / 4 || toRet < 0 || toRet >= blocksize) {
 				return -1;
 			}
 			return toRet;
@@ -325,9 +328,9 @@ namespace ifs
 			int p3 = static_cast<int>(floor(p.Z()));
 			Vector lowerLeft(static_cast<int>(floor(p.X())), static_cast<int>(floor(p.Y())), static_cast<int>(floor(p.Z())));
 
-			if (index2(p1, p2, p3) > Nx * Ny * Nz || index2(p1, p2, p3) < 0) {
+			/*if (index2(p1, p2, p3) > Nx * Ny * Nz || index2(p1, p2, p3) < 0) {
 				return defaultValue;
-			}
+			}*/
 
 			float weight[3];
 			Color value = Color(0.0f,0.0f,0.0f,0.0f);
@@ -343,9 +346,9 @@ namespace ifs
 					{
 						int cur_z = lowerLeft[2] + k;
 						weight[2] = 1.0 - std::abs(p[2] - cur_z);
-						if (index2(cur_x, cur_y, cur_z) < Nx * Ny * Nz && index2(cur_x, cur_y, cur_z) > 0) {
+						//if (index2(cur_x, cur_y, cur_z) < Nx * Ny * Nz && index2(cur_x, cur_y, cur_z) > 0) {
 							value += weight[0] * weight[1] * weight[2] * get(cur_x, cur_y, cur_z);
-						}
+						//}
 					}
 				}
 			}
@@ -356,7 +359,7 @@ namespace ifs
 
 		int getBlock(int i, int j, int k) {
 			int toRet = i + j * Nx / 4 + k * Nx / 4 * Ny / 4;
-			if (i < 0 || j < 0 || k < 0 || i >= Nx / 4 || j >= Ny / 4 || k >= Nz / 4 || toRet < 0 || toRet >((Nx*Ny*Nz)/64)) {
+			if (i < 0 || j < 0 || k < 0 || i >= Nx / 4 || j >= Ny / 4 || k >= Nz / 4 || toRet < 0 || toRet >= (Nx * Ny * Nz) / 64) {
 				return -1;
 			}
 			return toRet;
@@ -368,6 +371,10 @@ namespace ifs
 
 		void set(int i, int j, int k, Color val) {
 			if (index2(i, j, k) > Nx * Ny * Nz || index2(i, j, k) < 0 || val == defaultValue) {
+				return;
+			}
+
+			if (getBlock(i / 4, j / 4, k / 4) == -1) {
 				return;
 			}
 

@@ -15,6 +15,29 @@ namespace ifs {
 		};
 	};
 
+	class ConstVectorField : public FieldBase<Vector> {
+	public:
+		Vector C;
+
+		ConstVectorField(Vector c) : C(c) {};
+
+		const Vector eval(const Vector& pos) const {
+			return C;
+		};
+	};
+
+	class VectorTimesScalarField : public FieldBase<Vector> {
+	public:
+		const VectorField e1;
+		const scalarFieldT e2;
+
+		VectorTimesScalarField(const VectorField& V, const scalarFieldT& F) : e1(V), e2(F) {};
+
+		const Vector eval(const Vector& pos) const {
+			return e2->eval(pos) * e1->eval(pos);
+		};
+	};
+
 	class AddVectorFields : public FieldBase<Vector> {
 	public:
 		AddVectorFields(const VectorField& a, const VectorField& b);
@@ -35,6 +58,8 @@ namespace ifs {
 			return a->grad(pos);
 		};
 	};
+
+	
 	
 
 	class SubVectorFields : public FieldBase<Vector> {
@@ -58,6 +83,17 @@ namespace ifs {
 
 	};
 
+	class MultiVectorField : public FieldBase<Vector> {
+	public:
+		float constant;
+		const VectorField a;
+
+		MultiVectorField(const VectorField& a, const float& constant);
+
+		const Vector eval(const Vector& pos) const;
+
+	};
+
 	class warpVectorField : public FieldBase<Vector> {
 	public:
 		const VectorField F;
@@ -68,6 +104,16 @@ namespace ifs {
 		const Vector eval(const Vector& pos) const {
 			return F->eval(V->eval(pos));
 		};
+
+	};
+
+	class NoiseVectorField : public FieldBase<Vector> {
+	public:
+		FSPNParms parms;
+
+		NoiseVectorField(FSPNParms parms) : parms(parms) {};
+
+		const Vector eval(const Vector& pos) const;
 
 	};
 
@@ -128,34 +174,47 @@ namespace ifs {
 
 	};
 
-	//class FuncScalarField : public FieldBase<float> {
-	//public:
-	//	float (*func)(float x, float y, float z);
-
-
-	//	FuncScalarField(float (*implicitFunction)(float x, float y, float z)) {
-	//		func = implicitFunction;
-	//	}
-
-	//	float eval(float x, float y, float z) {
-	//		return eval(Vector(x, y, z));
-	//	}
-
-	//	const float eval(const Vector& pos) const {
-	//		return func(pos.X(), pos.Y(), pos.Z());
-	//	}
-	//};
-
-	/*class GridScalarField : public FieldBase<float> {
+	class GridVectorField : public FieldBase<Vector> {
 	public:
-		VolumeGrid<float>* grid;
+		VolumeGrid<Vector>* grid;
 
-		GridScalarField(int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
-		GridScalarField(scalarFieldT& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
-		GridScalarField(scalarFieldT& vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
-		GridScalarField(const char* filename, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
+		//~GridVectorField() {
+		//	delete grid;
+		//}
 
-		const float eval(const Vector& pos) const;
-	};*/
+		GridVectorField(VectorField& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
+		GridVectorField(VolumeGrid<Vector>* thegrid) {
+			grid = new VolumeGrid<Vector>(thegrid->Nx, thegrid->Ny, thegrid->Nz, thegrid->deltax, thegrid->deltay, thegrid->deltaz, thegrid->startPos);
+			grid->defaultValue = thegrid->defaultValue;
+
+			for (int k = 0; k < thegrid->Nz; k++) {
+				for (int j = 0; j < thegrid->Ny; j++) {
+					for (int i = 0; i < thegrid->Nx; i++) {
+						grid->set(i, j, k, thegrid->get(i, j, k));
+					} 
+				}
+			}
+		};
+
+		const Vector eval(const Vector& pos) const;
+	};
+
+	//class incpompressedVectorField : public FieldBase<Vector> {
+	//public:
+	//	VolumeGrid<Vector>* grid;
+
+	//	~incpompressedVectorField() {
+	//		delete grid;
+	//	}
+
+	//	incpompressedVectorField(VolumeGrid<Vector>& a){
+	//		
+	//	
+	//	};
+
+	//	const Vector eval(const Vector& pos) const {
+	//		return (grid)->grad(pos);
+	//	};
+	//};
 
 }

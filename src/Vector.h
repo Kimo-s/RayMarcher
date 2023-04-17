@@ -144,7 +144,7 @@ class Vector
 
    char *__str__() const {
        static char tmp[1024];
-       sprintf_s(tmp,"Vector(%g,%g,%g)", xyz[0],xyz[1],xyz[2]);
+       sprintf(tmp,"Vector(%g,%g,%g)", xyz[0],xyz[1],xyz[2]);
        return tmp;
    }
 

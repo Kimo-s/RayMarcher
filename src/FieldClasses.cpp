@@ -160,9 +160,9 @@ const std::vector< std::vector<double> > FDGradCoefficientGenerator()
 
 FDGradHandler::FDGradHandler() :
 	_nb_grad(1),
-	_dx(0.1),
-	_dy(0.1),
-	_dz(0.1)
+	_dx(0.01),
+	_dy(0.01),
+	_dz(0.01)
 {
 	_grad_coefficients = FDGradCoefficientGenerator();
 }
@@ -189,6 +189,11 @@ const Matrix ifs::FDGradient(const Vector& x, const Vector& y, const Vector& z)
 scalarFieldT ifs::constantScalarField(float c)
 {
 	return scalarFieldT(new constScalarField(c));
+}
+
+VectorField ifs::constantVectorField(Vector c)
+{
+	return VectorField(new ConstVectorField(c));
 }
 
 scalarFieldT ifs::funcField(float(*func)(float x, float y, float z))
@@ -226,6 +231,11 @@ scalarFieldT ifs::gridField(scalarFieldT& vol, int Nx, int Ny, int Nz, float del
 	return scalarFieldT(new GridScalarField(vol, Nx, Ny, Nz, deltax, deltay, deltaz, startPos));
 }
 
+VectorField ifs::gridField(VectorField& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos)
+{
+	return VectorField(new GridVectorField(vol, Nx, Ny, Nz, deltax, deltay, deltaz, startPos));
+}
+
 scalarFieldT ifs::gridField(scalarFieldT& vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos)
 {
 	return scalarFieldT(new GridScalarField(vol, lightPos, Nx, Ny, Nz, deltax, deltay, deltaz, startPos));
@@ -234,6 +244,11 @@ scalarFieldT ifs::gridField(scalarFieldT& vol, Vector lightPos, int Nx, int Ny, 
 scalarFieldT ifs::gridField(const char* filename, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos)
 {
 	return scalarFieldT(new GridScalarField(filename, Nx, Ny, Nz, deltax, deltay, deltaz, startPos));
+}
+
+scalarFieldT ifs::GuideParticale(Vector u, FSPNParms params, float fade, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz)
+{
+	return scalarFieldT(new addGuideParticaleScalarField(u, params, fade, Nx, Ny, Nz, deltax, deltay, deltaz));
 }
 
 VectorField ifs::warp(VectorField soruce, VectorField wraper)
@@ -251,8 +266,113 @@ scalarFieldT ifs::warp(scalarFieldT soruce, VectorField wraper)
 	return scalarFieldT(new warpScalarField(soruce, wraper));
 }
 
+float divergence(VectorField V, int i, int j, int k, float dt, Vector startPos) {
+
+	Vector pos1 = Vector((i - 1) * dt + startPos[0], j * dt + startPos[1], k * dt + startPos[2]);
+	Vector pos2 = Vector((i + 1) * dt + startPos[0], j * dt + startPos[1], k * dt + startPos[2]);
+	float x = (V->eval(pos2).X() - V->eval(pos1).X()) / (2 * dt);
+
+	pos1 = Vector(i * dt + startPos[0], (j-1) * dt + startPos[1], k * dt + startPos[2]);
+	pos2 = Vector(i * dt + startPos[0], (j+1) * dt + startPos[1], k * dt + startPos[2]);
+	float y = (V->eval(pos2).Y() - V->eval(pos1).Y()) / (2 * dt);
+
+	pos1 = Vector(i * dt + startPos[0], j * dt + startPos[1], (k-1) * dt + startPos.Z());
+	pos2 = Vector(i * dt + startPos[0], j * dt + startPos[1], (k+1) * dt + startPos.Z());
+	float z = (V->eval(pos2).Z() - V->eval(pos1).Z()) / (2 * dt);
+	return x + y + z;
+}
+
+void ifs::incompress(VectorField V, VolumeParms* parms)
+{
+	VolumeGrid<Vector>* newV = new VolumeGrid<Vector>(parms->Nx, parms->Ny, parms->Nz, parms->dx, parms->dy, parms->dz, parms->startPos);
+	VolumeGrid<float>* p = new VolumeGrid<float>(parms->Nx, parms->Ny, parms->Nz, parms->dx, parms->dy, parms->dz, parms->startPos);
+	VolumeGrid<float>* oldp = new VolumeGrid<float>(parms->Nx, parms->Ny, parms->Nz, parms->dx, parms->dy, parms->dz, parms->startPos);
+	p->defaultValue = -10.0f;
+	oldp->defaultValue = -10.0f;
+	float dt = parms->dx;
+
+	//cout << "Value at the mid point " << divergence(V, 20, 20, 20, dt, parms->startPos) << endl;
+	int numIters = 20;
+	for (int iter = 0; iter < numIters; iter++) {
+
+		#pragma omp parallel for schedule(dynamic) num_threads(20)
+		for (int k = 0; k < p->Nz; k++) {
+			for (int j = 0; j < p->Ny; j++) {
+				for (int i = 0; i < p->Nx; i++) {
+
+					float div = divergence(V, i, j, k, dt, parms->startPos);
+
+					float avg = (oldp->get(i + 1, j, k) + oldp->get(i - 1, j, k)
+						+ oldp->get(i, j + 1, k) + oldp->get(i, j - 1, k)
+						+ oldp->get(i, j, k + 1) + oldp->get(i, j, k - 1)) / 6.0;
+					float newp = avg - ((dt * dt) / 6.0) * div;
+					//cout << "lol: " << newp << "\n";
+					p->set(i, j, k, newp);
+					//cout << "test p  " << p.get(i, j, k) << "\n";
+				}
+			}
+		}
+
+		//Copy the new P to the old P
+		//#pragma omp parallel for schedule(dynamic) num_threads(20)
+		for (int k = 0; k < p->Nz; k++) {
+			for (int j = 0; j < p->Ny; j++) {
+				for (int i = 0; i < p->Nx; i++) {
+					oldp->set(i, j, k, p->get(i, j, k));
+					/*if (i == p->Nx / 2 && j == p->Ny / 2 && k == p->Nz / 2) {
+						cout << "value of p " << p->get(i, j, k) << " at iter " << iter << "\n";
+					}*/
+				}
+			}
+		}
+
+	}
+
+	scalarFieldT pfield = scalarFieldT(new GridScalarField(p));
+
+	
+	//pfield->eval(Vector(0.0, 0.0, 0.0));
+
+
+	for (int k = 0; k < newV->Nz; k++) {
+		for (int j = 0; j < newV->Ny; j++) {
+			for (int i = 0; i < newV->Nx; i++) {
+				Vector pos = Vector(i * dt + parms->startPos[0], j * dt + parms->startPos[1], k * dt + parms->startPos[2]);
+				newV->set(i, j, k, V->eval(pos) - pfield->grad(pos));
+				/*if (i == p.Nx / 2 && j == p.Ny / 2 && k == p.Nz / 2) {
+					cout << "value of p " << p.get(i, j, k) << "\n";
+				}*/
+			}
+		}
+	}
+
+	VectorField res = VectorField(new GridVectorField(newV));
+	//cout << "Test vector field: " << res->eval(Vector(0, 0, 0)).__str__() << endl;
+	//
+	V = res;
+	//cout << "Value at the mid point after " << divergence(V, 20, 20, 20, dt, parms->startPos) << endl;
+
+	//return res;
+}
+
+scalarFieldT ifs::advect(scalarFieldT density, VectorField vel, float dt)
+{
+	return warp(density, identityVectorField() - vel * dt);
+}
+
+VectorField ifs::advect(VectorField s, VectorField vel, float dt)
+{
+	return warp(s, identityVectorField() - vel * dt);
+}
+
 VectorField ifs::gradField(scalarFieldT a) {
 	return VectorField(new gradVectorField(a));
+}
+
+VectorField ifs::noiseVectorField(FSPNParms parms)
+{
+
+	return VectorField(new NoiseVectorField(parms));
 }
 
 scalarFieldT scalarFieldT::add(scalarFieldT& v1, const scalarFieldT& v2) { return scalarFieldT(new AddScalarFields(v1, v2)); }
@@ -271,7 +391,12 @@ scalarFieldT ifs::scalarFieldT::addWispParticale(VolumeParms parms, FSPNParms fs
 {
 	return this->max(scalarFieldT(new wispScalarField(parms, fspn1, fspn2, guidPos, density, pscale, wisp_displacement, clump, wispCount)));
 }
-scalarFieldT scalarFieldT::operator+(const scalarFieldT& second) { return add(*this, second); };
+scalarFieldT scalarFieldT::operator+(const scalarFieldT& second) { return add(*this, second); }
+
+scalarFieldT ifs::scalarFieldT::operator*(const scalarFieldT& second)
+{
+	return scalarFieldT(new MultiplyScalarFields(*this, second));
+}
 
 
 VectorField VectorField::add(VectorField& v1, const VectorField& v2) { return VectorField(new AddVectorFields(v1, v2)); }
@@ -283,6 +408,8 @@ VectorField VectorField::mask() { return VectorField(new MaskVectorField(*this))
 VectorField VectorField::rotate(Vector u, float theta) { return VectorField(new RotateVectorField(*this, u, theta)); };
 VectorField VectorField::operator+(const VectorField& second) { return add(*this, second); }
 VectorField VectorField::operator-(const VectorField& second) { return VectorField(new SubVectorFields(*this, second)); }
+VectorField ifs::VectorField::operator*(const float constant) { return VectorField(new MultiVectorField(*this, constant)); }
+VectorField ifs::VectorField::operator*(const scalarFieldT& constant) { return VectorField(new VectorTimesScalarField(*this, constant)); }
 
 ColorField ColorField::add(ColorField& v1, const ColorField& v2) { return ColorField(new  AddColorFields(v1, v2)); };
 ColorField ColorField::translate(const Vector transVec) { return ColorField(new TranslateColorField(*this, transVec)); };

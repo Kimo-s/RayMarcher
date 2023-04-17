@@ -72,7 +72,7 @@ void Camera::setAspectRatio( const double ar )
 
 char * Camera::__str__() {
        static char tmp[1024];
-       sprintf_s(tmp,"Camera( eye->Vector(%g,%g,%g), view->Vector(%g,%g,%g), up->Vector(%g,%g,%g), fov->%g, aspect->%g, near->%g, far->%g )", position.X(), position.Y(), position.Z(), axis_view.X(), axis_view.Y(), axis_view.Z(), axis_up.X(), axis_up.Y(), axis_up.Z(), FOV, aspect_ratio, near, far );
+       sprintf(tmp,"Camera( eye->Vector(%g,%g,%g), view->Vector(%g,%g,%g), up->Vector(%g,%g,%g), fov->%g, aspect->%g, near->%g, far->%g )", position.X(), position.Y(), position.Z(), axis_view.X(), axis_view.Y(), axis_view.Z(), axis_up.X(), axis_up.Y(), axis_up.Z(), FOV, aspect_ratio, near, far );
        return tmp;
 }
 

@@ -5,7 +5,7 @@
 
 namespace ifs {
 
-
+	float evalFSPN(FSPNParms parm, Vector pos);
 
 	class constScalarField : public FieldBase<float> {
 	public:
@@ -23,12 +23,25 @@ namespace ifs {
 		Vector normal, center;
 		//float thickness, width, height;
 		FSPNParms params;
+		FSPNParms paramsNegtive;
 
 		planeScalarField(Vector normal, Vector center, FSPNParms params) :
 			normal(normal.unitvector()),
 			center(center),
 			params(params)
-		{};
+		{
+
+			paramsNegtive = {
+				2.3f,
+				params.N,
+				1.4f,
+				7.8f,
+				0.7f,
+				params.xt,
+				0.4f
+			};
+		
+		};
 
 		const float eval(const Vector& pos) const;
 	};
@@ -37,6 +50,16 @@ namespace ifs {
 	class AddScalarFields : public FieldBase<float> {
 	public:
 		AddScalarFields(const scalarFieldT& a, const scalarFieldT& b);
+
+		const float eval(const Vector& pos) const;
+	private:
+		const scalarFieldT e1;
+		const scalarFieldT e2;
+	};
+
+	class MultiplyScalarFields : public FieldBase<float> {
+	public:
+		MultiplyScalarFields(const scalarFieldT& a, const scalarFieldT& b);
 
 		const float eval(const Vector& pos) const;
 	private:
@@ -190,6 +213,18 @@ namespace ifs {
 			delete grid;
 		}
 		GridScalarField(int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
+		GridScalarField(VolumeGrid<float>* thegrid) {
+			grid = new VolumeGrid<float>(thegrid->Nx, thegrid->Ny, thegrid->Nz, thegrid->deltax, thegrid->deltay, thegrid->deltaz, thegrid->startPos);
+			grid->defaultValue = thegrid->defaultValue;
+
+			for (int k = 0; k < thegrid->Nz; k++) {
+				for (int j = 0; j < thegrid->Ny; j++) {
+					for (int i = 0; i < thegrid->Nx; i++) {
+						grid->set(i, j, k, thegrid->get(i, j, k));
+					}
+				}
+			}
+		};
 		GridScalarField(scalarFieldT& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 		GridScalarField(scalarFieldT& vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 		GridScalarField(const char* filename, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);

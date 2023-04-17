@@ -163,7 +163,8 @@ namespace ifs {
 		VectorField rotate(Vector u, float theta);
 		VectorField operator+(const VectorField& second);
 		VectorField operator-(const VectorField& second);
-
+		VectorField operator*(const float constant);
+		VectorField operator*(const scalarFieldT& constant);
 	};
 
 	class scalarFieldT : public std::shared_ptr<FieldBase<float> > {
@@ -188,6 +189,7 @@ namespace ifs {
 		scalarFieldT rotate(Vector u, float theta);
 		scalarFieldT addGuideParticale(Vector u, FSPNParms params, float fade, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz);
 		scalarFieldT operator+(const scalarFieldT& second);
+		scalarFieldT operator*(const scalarFieldT& second);
 		scalarFieldT addWispParticale(VolumeParms parms, FSPNParms fspn1, FSPNParms fspn2, Vector guidPos, float density, float pscale, float wisp_displacement, float clump, int wispCount);
 	};
 
@@ -215,21 +217,29 @@ namespace ifs {
 
 
 	scalarFieldT constantScalarField(float c);
+	VectorField constantVectorField(Vector c);
 	scalarFieldT funcField(float(*func)(float x, float y, float z));
 
 	ColorField gridColorField(ColorField& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos); 
 	ColorField colorMaskField(const scalarFieldT& f, Color col);
 	scalarFieldT gridField(int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 
-	scalarFieldT constantField(float constant);
 	scalarFieldT plane(Vector normal, Vector center, FSPNParms params);
 	scalarFieldT gridField(scalarFieldT& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
+	VectorField gridField(VectorField& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 	scalarFieldT gridField(scalarFieldT& vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 	scalarFieldT gridField(const char* filename, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 
+	scalarFieldT GuideParticale(Vector u, FSPNParms params, float fade, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz);
+
+	scalarFieldT constantField(float constant); //duplicated???
 	VectorField warp(VectorField soruce, VectorField wraper);
 	VectorField identityVectorField();
 	VectorField gradField(scalarFieldT f);
+	VectorField noiseVectorField(FSPNParms parms);
 	scalarFieldT warp(scalarFieldT soruce, VectorField wraper);
 
+	void incompress(VectorField soruce, VolumeParms* parms);
+	scalarFieldT advect(scalarFieldT density, VectorField vel, float dt);
+	VectorField advect(VectorField s, VectorField vel, float dt);
 }

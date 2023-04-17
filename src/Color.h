@@ -85,7 +85,7 @@ namespace ifs {
 
 		char* print() {
 			char* buf = new char[100];
-			sprintf_s(buf, 100, "(R:%.2f,G:%.2f,B:%.2f,A:%.2f)", r, g, b, a);
+			sprintf(buf, "(R:%.2f,G:%.2f,B:%.2f,A:%.2f)", r, g, b, a);
 			return buf;
 		}
 	};

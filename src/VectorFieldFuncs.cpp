@@ -2,6 +2,7 @@
 #include "FieldClasses.h"
 #include "VolumeClasses.h"
 #include "Vector.h"
+#include "ScalarFieldFuncs.h"
 
 using namespace ifs;
 
@@ -104,4 +105,32 @@ ifs::SubVectorFields::SubVectorFields(const VectorField& a, const VectorField& b
 const Vector ifs::SubVectorFields::eval(const Vector& pos) const
 {
 	return e1->eval(pos)-e2->eval(pos);
+}
+
+const Vector ifs::NoiseVectorField::eval(const Vector& pos) const
+{
+	float dt = 0.01f;
+	float x = evalFSPN(parms, pos + dt * Vector(1.0, 0.0, 0.0));
+	float y = evalFSPN(parms, pos + dt * Vector(0.0, 1.0, 0.0));
+	float z = evalFSPN(parms, pos + dt * Vector(0.0, 0.0, 1.0));
+	return Vector((y - z) / dt, (z - x) / dt, (x - y) / dt);
+}
+
+ifs::MultiVectorField::MultiVectorField(const VectorField& a, const float& constant) : a(a), constant(constant)
+{
+}
+
+const Vector ifs::MultiVectorField::eval(const Vector& pos) const
+{
+	return a->eval(pos)*constant;
+}
+
+ifs::GridVectorField::GridVectorField(VectorField& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos)
+{
+	grid = new VolumeGrid<Vector>(vol, Nx, Ny, Nz, deltax, deltay, deltaz, startPos);
+}
+
+const Vector ifs::GridVectorField::eval(const Vector& pos) const
+{
+	return grid->eval(pos);
 }

@@ -158,7 +158,7 @@ namespace ifs
         char* __str__() const
         {
             static char tmp[1024];
-            sprintf_s(tmp, "Matrix( %g,%g,%g, %g,%g,%g, %g,%g,%g )", m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2]);
+            sprintf(tmp, "Matrix( %g,%g,%g, %g,%g,%g, %g,%g,%g )", m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2]);
             return tmp;
         }
 

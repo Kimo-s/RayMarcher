@@ -14,7 +14,7 @@
 
 using namespace ifs;
 
-float evalFSPN(FSPNParms parm, Vector pos) {
+float ifs::evalFSPN(FSPNParms parm, Vector pos) {
 	Vector temp = (pos - parm.xt) * parm.f;
 	float toAdd = db::perlin(temp.X(), temp.Y(), temp.Z());
 
@@ -24,7 +24,7 @@ float evalFSPN(FSPNParms parm, Vector pos) {
 	}
 	toAdd *= (1 - parm.roughness) / (1 - pow(parm.roughness, parm.N));
 
-	return pow(toAdd, parm.gamma) * parm.A;
+	return toAdd;
 }
 
 AddScalarFields::AddScalarFields(const scalarFieldT& a, const scalarFieldT& b): e1(a), e2(b) {
@@ -34,6 +34,15 @@ AddScalarFields::AddScalarFields(const scalarFieldT& a, const scalarFieldT& b): 
 const float AddScalarFields::eval(const Vector& pos) const
 {
 	return e1->eval(pos) + e2->eval(pos);
+}
+
+MultiplyScalarFields::MultiplyScalarFields(const scalarFieldT& a, const scalarFieldT& b) : e1(a), e2(b) {
+
+}
+
+const float MultiplyScalarFields::eval(const Vector& pos) const
+{
+	return e1->eval(pos) * e2->eval(pos);
 }
 
 ScaleScalarField::ScaleScalarField(const scalarFieldT& a1, const float& scalefactor1): scalefactor(scalefactor1), e2(a1){
@@ -134,7 +143,7 @@ const float ifs::CutScalarField::eval(const Vector& pos) const
 	float v1, v2;
 	v1 = a->eval(pos);
 	v2 = -b->eval(pos);
-	if (v1 > v2) {
+	if (v1 < v2) {
 		return v1;
 	}
 	else {
@@ -175,13 +184,20 @@ ifs::addGuideParticaleScalarField::addGuideParticaleScalarField(Vector u, FSPNPa
 		for (int j = 0; j < Ny; j++) {
 			for (int i = 0; i < Nx; i++) {
 				Vector pos(i * deltax + startpos[0], j * deltay + startpos[1], k * deltaz + startpos[2]);
-				float falloff = pow((pos - u).magnitude(), fade) / pscale;
+				float falloff = pow((pos - u).magnitude() / pscale, fade);
 
-				if (1.0f - falloff > 1.0f) {
+				falloff = 1.0f - falloff;
+
+				if (falloff > 1.0f) {
 					falloff = 1.0f;
-				} else if (1.0f - falloff < 0.0f) {
+				} else if (falloff < 0.0f) {
 					falloff = 0.0f;
 				}
+				/*else {
+					cout << falloff << endl;
+					cout << "magnitude: " << (pos - u).magnitude() << endl;
+				}*/
+				
 
 				float toAdd = evalFSPN(params, pos);
 
@@ -260,20 +276,22 @@ const float ifs::wispScalarField::eval(const Vector& pos) const
 const float ifs::planeScalarField::eval(const Vector& pos) const
 {
 
-	if (fabs(pos.X()) > 2.0) {
+	if (fabs(pos.X()) > 2.50) {
 		return 0.0f;
 	}
-	else if (fabs(pos.Y()) > 2.0) {
+	else if (fabs(pos.Y()) > 2.50) {
 		return 0.0f;
 	}
 
 
 	float val = (pos - center) * normal;
 	Vector cpt = pos - val * normal;
-
-	float noise = evalFSPN(params, cpt);
-	if (noise < 0.0f) {
-		noise *= 0.2f;
+	
+	float fsnres = evalFSPN(params, cpt);
+	float noise = params.A * pow(fsnres, params.gamma);
+	if (fsnres < 0.0f) {
+		//noise = pow(fabs(noise * (1.0 / params.A)), 2.0) * 0.1f;
+		noise = -paramsNegtive.A * pow(fabs(evalFSPN(paramsNegtive, cpt)) , paramsNegtive.gamma);
 	}
 
 	return val + noise;

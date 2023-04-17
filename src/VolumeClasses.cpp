@@ -11,7 +11,7 @@
 #define M_PI 3.14159265358979323846
 
 template<>
-ifs::VolumeGrid<float>::VolumeGrid<float>(int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos) {
+VolumeGrid<float>::VolumeGrid(int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos) {
 	this->Nx = Nx;
 	this->Ny = Ny;
 	this->Nz = Nz;
@@ -27,9 +27,28 @@ ifs::VolumeGrid<float>::VolumeGrid<float>(int Nx, int Ny, int Nz, float deltax, 
 	}
 }
 
+template<>
+VolumeGrid<Vector>::VolumeGrid(int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos) {
+	this->Nx = Nx;
+	this->Ny = Ny;
+	this->Nz = Nz;
+	this->deltax = deltax;
+	this->deltay = deltay;
+	this->deltaz = deltaz;
+	this->startPos = startPos;
+	blocksize = (Nx * Ny * Nz) / 64;
+	this->defaultValue = Vector(0.0,0.0,0.0);
+	data = make_unique<Vector* []>((Nx * Ny * Nz) / 64);
+	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
+		data[p] = NULL;
+	}
+}
+
+
 
 // Volume Grid
-ifs::VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos) {
+template<>
+VolumeGrid<float>::VolumeGrid(scalarFieldT vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos) {
 	this->Nx = Nx;
 	this->Ny = Ny;
 	this->Nz = Nz;
@@ -62,7 +81,7 @@ ifs::VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, int Nx, int Ny, int 
 }
 
 template<>
-ifs::VolumeGrid<Vector>::VolumeGrid<Vector>(VectorField vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos)
+ifs::VolumeGrid<Vector>::VolumeGrid(VectorField vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos)
 {
 	this->Nx = Nx;
 	this->Ny = Ny;
@@ -117,7 +136,8 @@ float rayMarchLight(scalarFieldT f, Vector point, Vector lightPos, float ds) {
 }
 
 // Deep shadow maps 
-VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos) {
+template<>
+VolumeGrid<float>::VolumeGrid(scalarFieldT vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos) {
 	this->Nx = Nx;
 	this->Ny = Ny;
 	this->Nz = Nz;
@@ -149,7 +169,8 @@ VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, Vector lightPos, int Nx, 
 }
 
 // Deep shadow maps on frustum shaped grid
-VolumeGrid<float>::VolumeGrid<float>(scalarFieldT vol, Vector lightPos, int Nx, int Ny, int Nz, float nearPlane, float farPlane, float fov) {
+template<>
+VolumeGrid<float>::VolumeGrid(scalarFieldT vol, Vector lightPos, int Nx, int Ny, int Nz, float nearPlane, float farPlane, float fov) {
 	this->Nx = Nx;
 	this->Ny = Ny;
 	this->Nz = Nz;
@@ -305,8 +326,8 @@ bool rayTriangleIntersect(
 	return true; // this ray hits the triangle
 }
 
-
-ifs::VolumeGrid<float>::VolumeGrid<float>(const char* filename, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos) {
+template<>
+ifs::VolumeGrid<float>::VolumeGrid(const char* filename, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos) {
 
 	this->Nx = Nx;
 	this->Ny = Ny;

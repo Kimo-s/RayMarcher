@@ -186,7 +186,7 @@ void rayMarch(scalarFieldT f, std::vector<VolumeGrid<float>* > DSM, std::vector<
 
 	int percent = 0;
 	
-	#pragma omp parallel for schedule(dynamic) num_threads(20) shared(percent, f, DSM) 
+	#pragma omp parallel for schedule(dynamic) shared(percent, f, DSM) 
 	for (int j = 0; j < height; j++) {
 		for (int i = 0; i < width; i++) {
 			float s = snear;
@@ -263,12 +263,12 @@ int main() {
 	int width = 1920;
 	int height = 1080;
 	float ds = 0.01f;
-	float sfar = 5.0f;
-	float snear = 0.5f;
+	float sfar = 7.0f;
+	float snear = 2.0f;
 	float k = 3.0f;
 
 	Camera c;
-	float r = 3.0f;
+	float r = 5.0f;
 	float theta = M_PI / 2.0f;
 	int N = 120;
 	//float dt = 2.0f * M_PI / N;
@@ -281,48 +281,94 @@ int main() {
 		2.8f,
 		0.7f,
 		Vector(1.0, 1.0, 0.0),
-		1.0f
+		0.4f
 	};
 
-	Vector cameraCenter = Vector(r, 0, -3.0f);
+	FSPNParms pyronoise = {
+		2.0f,
+		3,
+		2.3f,
+		2.8f,
+		0.7f,
+		Vector(0.0, 0.0, 0.0),
+		0.5f
+	};
+
+	Vector cameraCenter = Vector(r, 0, 0);
 
 	float dx = 0.12f;
 	
 
-	scalarFieldT h = funcField(sphere).scale(0.3).translate(Vector(0,0,0.4));
+	//scalarFieldT inith = funcField(sphere).pyroclasticNoise(pyronoise).scale(0.3).translate(Vector(0,0,0.4));
+	scalarFieldT bunny = gridField("bunny.obj", 400, 400, 400, 0.015, 0.015, 0.015, Vector(-3.0, -3.0, -3.0));
+	
 	VectorField V = noiseVectorField(params);
 	//V = gridField(V, 50, 50, 50, dx, dx, dx, Vector(-3.0, -3.0, -3.0));
-	V = constantVectorField(Vector(0, 0, -1.0));
+	//V = constantVectorField(Vector(0, 0, 0.0));
 
 	//incompress(V, new VolumeParms{ 50, 50, 50, dx, dx, dx, Vector(-3.0, -3.0, -3.0) });
 	//V->eval(Vector(0, 0, 0));
 
-	float dt = 0.3;
+	float dt = 0.005;
 
+	VolumeGrid<float> dsmKey(bunny.scale(0.5).rotate(Vector(1.0,0.0,0.0), M_PI/2.0).translate(Vector(0.0,0.0,0.5)), Vector(0.0f, 0.0f, -5.0f), 700, 700, 700, 2.0f, 8.0f, 60.0*(M_PI/180.0));
+	std::vector< VolumeGrid<float>* > dsmMap = {&dsmKey};
+	std::vector< Color > lightColorMap = {Color(1.0,1.0,1.0,1.0)};
+
+	ColorField colField = colorMaskField(bunny.scale(0.5).rotate(Vector(1.0,0.0,0.0), M_PI/2.0).translate(Vector(0.0,0.0,0.5)), color1);
+
+	char name[100];
+	cameraCenter = Vector(0.0, r, 0.0f);
+	c.setEyeViewUp(cameraCenter, -1.0f * cameraCenter, Vector(0, 0, 1));
+	sprintf(name, "bunny.exr");
+	rayMarch(bunny.scale(0.5).rotate(Vector(1.0,0.0,0.0), M_PI/2.0).translate(Vector(0.0,0.0,0.5)), dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
+	
 	VectorField xmap = identityVectorField();
 
-	for (int i = 0; i < 30; i++) {
+	int i = 0;
+
+	for (int frame = 0; frame < 60; frame++) {
+
+		scalarFieldT inith = bunny.pyroclasticNoise(pyronoise).scale(0.5).rotate(Vector(1.0,0.0,0.0), M_PI/2.0).translate(Vector(0.0,0.0,0.5));
+		inith = gridField(inith, 400, 400, 400, 0.015, 0.015, 0.015, Vector(-3.0, -3.0, -3.0));
+
+		pyronoise.A += 0.05;
+
+		VolumeGrid<float> dsmKey(inith, Vector(0.0f, 0.0f, -5.0f), 700, 700, 700, 0.0f, 8.0f, 60.0*(M_PI/180.0));
+
+		std::vector< VolumeGrid<float>* > dsmMap = {&dsmKey};
+		std::vector< Color > lightColorMap = {Color(1.0,1.0,1.0,1.0)};
+
+
+		ColorField colField = colorMaskField(inith, color1);
+
+		//colField = gridColorField(colField, 500, 500, 500, 0.012, 0.012, 0.012, Vector(-2.5, -2.5, -2.5));
+
+		char name[100];
+
+		cameraCenter = Vector(r*sin(1.0*i*(2*M_PI/120.0)), r*cos(1.0*i*(2*M_PI/120.0)), 0.0f);
+		c.setEyeViewUp(cameraCenter, -1.0f * cameraCenter, Vector(0, 0, 1));
+		sprintf(name, "out%03d.exr", i);
+		rayMarch(inith, dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
+		i+=1;
+	}
+
+	scalarFieldT inith = bunny.pyroclasticNoise(pyronoise).scale(0.5).rotate(Vector(1.0,0.0,0.0), M_PI/2.0).translate(Vector(0.0,0.0,0.5));
+	inith = gridField(inith, 400, 400, 400, 0.015, 0.015, 0.015, Vector(-3.0, -3.0, -3.0));
+
+	for (int frame = 0; frame < 60; frame++) {
 
 		// with characteristic map 
-		//xmap = advect(xmap, V, dt);
-		//xmap = gridField(xmap, 50, 50, 50, dx, dx, dx, Vector(-3.0, -3.0, -3.0));
-		//scalarFieldT h = warp(inith, xmap);
+		xmap = advect(xmap, V, dt);
+		xmap = xmap - identityVectorField();
+		xmap = gridField(xmap, 50, 50, 50, dx, dx, dx, Vector(-3.0, -3.0, -3.0));
+		xmap = xmap + identityVectorField();
+		scalarFieldT h = warp(inith, xmap);
+	
 
-		// No characteristic map 
-		h = advect(h, V, dt);
+		pyronoise.A += 0.05;
 
-		//h = funcField(sphere);
-
-		V = advect(V, V, dt) - constantVectorField(Vector(0,0,0.3)) * h * constantScalarField(dt);
-		incompress(V, new VolumeParms{ 50, 50, 50, dx, dx, dx, Vector(-3.0, -3.0, -3.0) });
-		V = gridField(V, 50, 50, 50, dx, dx, dx, Vector(-3.0, -3.0, -3.0));
-
-		//h = gridField(h, 300, 300, 300, 0.02, 0.02, 0.02, Vector(-3.0, -3.0, -3.0));
-
-
-		//xmap = gridField(xmap, 50, 50, 50, dx, dx, dx, Vector(-3.0, -3.0, -3.0));
-
-		VolumeGrid<float> dsmKey(h, Vector(0.0f, 0.0f, -4.0f), 300, 300, 300, 0.3f, 8.0f, M_PI / 2.0);
+		VolumeGrid<float> dsmKey(h, Vector(0.0f, 0.0f, -5.0f), 700, 700, 700, 2.0f, 8.0f, 60.0*(M_PI/180.0));
 
 		std::vector< VolumeGrid<float>* > dsmMap = {&dsmKey};
 		std::vector< Color > lightColorMap = {Color(1.0,1.0,1.0,1.0)};
@@ -334,10 +380,11 @@ int main() {
 
 		char name[100];
 
-		cameraCenter = Vector(0, r, 0.0f);
+		cameraCenter = Vector(r*sin(1.0*i*(2*M_PI/120)), r*cos(1.0*i*(2*M_PI/120)), 0.0f);
 		c.setEyeViewUp(cameraCenter, -1.0f * cameraCenter, Vector(0, 0, 1));
 		sprintf(name, "out%03d.exr", i);
 		rayMarch(h, dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
+		i+=1;
 	}
 	
 

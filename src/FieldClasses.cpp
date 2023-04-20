@@ -287,12 +287,21 @@ void ifs::incompress(VectorField V, VolumeParms* parms)
 	VolumeGrid<Vector>* newV = new VolumeGrid<Vector>(parms->Nx, parms->Ny, parms->Nz, parms->dx, parms->dy, parms->dz, parms->startPos);
 	VolumeGrid<float>* p = new VolumeGrid<float>(parms->Nx, parms->Ny, parms->Nz, parms->dx, parms->dy, parms->dz, parms->startPos);
 	VolumeGrid<float>* oldp = new VolumeGrid<float>(parms->Nx, parms->Ny, parms->Nz, parms->dx, parms->dy, parms->dz, parms->startPos);
-	p->defaultValue = -10.0f;
-	oldp->defaultValue = -10.0f;
+	p->defaultValue = -10000.0f;
+	oldp->defaultValue = -10000.0f;
 	float dt = parms->dx;
 
+	for (int k = 0; k < p->Nz; k++) {
+		for (int j = 0; j < p->Ny; j++) {
+			for (int i = 0; i < p->Nx; i++) {
+				p->set(i, j, k, 0.0f);
+				oldp->set(i, j, k, divergence(V, i, j, k, dt, parms->startPos));
+			}
+		}
+	}
+
 	//cout << "Value at the mid point " << divergence(V, 20, 20, 20, dt, parms->startPos) << endl;
-	int numIters = 20;
+	int numIters = 30;
 	for (int iter = 0; iter < numIters; iter++) {
 
 		#pragma omp parallel for schedule(dynamic) num_threads(20)
@@ -300,11 +309,11 @@ void ifs::incompress(VectorField V, VolumeParms* parms)
 			for (int j = 0; j < p->Ny; j++) {
 				for (int i = 0; i < p->Nx; i++) {
 
-					float div = divergence(V, i, j, k, dt, parms->startPos);
+					float div = oldp->get(i,j,k);
 
-					float avg = (oldp->get(i + 1, j, k) + oldp->get(i - 1, j, k)
-						+ oldp->get(i, j + 1, k) + oldp->get(i, j - 1, k)
-						+ oldp->get(i, j, k + 1) + oldp->get(i, j, k - 1)) / 6.0;
+					float avg = (p->get(i + 1, j, k) + p->get(i - 1, j, k)
+						+ p->get(i, j + 1, k) + p->get(i, j - 1, k)
+						+ p->get(i, j, k + 1) + p->get(i, j, k - 1)) / 6.0;
 					float newp = avg - ((dt * dt) / 6.0) * div;
 					//cout << "lol: " << newp << "\n";
 					p->set(i, j, k, newp);
@@ -315,16 +324,16 @@ void ifs::incompress(VectorField V, VolumeParms* parms)
 
 		//Copy the new P to the old P
 		//#pragma omp parallel for schedule(dynamic) num_threads(20)
-		for (int k = 0; k < p->Nz; k++) {
-			for (int j = 0; j < p->Ny; j++) {
-				for (int i = 0; i < p->Nx; i++) {
-					oldp->set(i, j, k, p->get(i, j, k));
-					/*if (i == p->Nx / 2 && j == p->Ny / 2 && k == p->Nz / 2) {
-						cout << "value of p " << p->get(i, j, k) << " at iter " << iter << "\n";
-					}*/
-				}
-			}
-		}
+		//for (int k = 0; k < p->Nz; k++) {
+		//	for (int j = 0; j < p->Ny; j++) {
+		//		for (int i = 0; i < p->Nx; i++) {
+		//			oldp->set(i, j, k, p->get(i, j, k));
+		//			/*if (i == p->Nx / 2 && j == p->Ny / 2 && k == p->Nz / 2) {
+		//				cout << "value of p " << p->get(i, j, k) << " at iter " << iter << "\n";
+		//			}*/
+		//		}
+		//	}
+		//}
 
 	}
 
@@ -350,7 +359,7 @@ void ifs::incompress(VectorField V, VolumeParms* parms)
 	//cout << "Test vector field: " << res->eval(Vector(0, 0, 0)).__str__() << endl;
 	//
 	V = res;
-	//cout << "Value at the mid point after " << divergence(V, 20, 20, 20, dt, parms->startPos) << endl;
+	cout << "Value at the mid point after " << divergence(V, 20, 20, 20, dt, parms->startPos) << endl;
 
 	//return res;
 }

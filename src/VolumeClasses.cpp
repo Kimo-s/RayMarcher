@@ -338,7 +338,7 @@ ifs::VolumeGrid<float>::VolumeGrid(const char* filename, int Nx, int Ny, int Nz,
 	this->startPos = startPos;
 	blocksize = (Nx * Ny * Nz) / 64;
 	this->data = make_unique<float* []>((Nx * Ny * Nz) / 64);
-	this->defaultValue = -1000.0f;
+	this->defaultValue = -1000000.0f;
 	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
 		this->data[p] = NULL;
 	}
@@ -381,7 +381,7 @@ ifs::VolumeGrid<float>::VolumeGrid(const char* filename, int Nx, int Ny, int Nz,
 		uj = static_cast<int>(floor((URC.Y() - startPos[1]) / deltay)) + bandwidth;
 		uk = static_cast<int>(floor((URC.Z() - startPos[2]) / deltaz)) + bandwidth;
 
-		#pragma omp parallel for schedule(dynamic) num_threads(20)
+		#pragma omp parallel for schedule(dynamic)
 		for (int k = lk; k < uk; k++) {
 			for (int j = lj; j < uj; j++) {
 				for (int i = li; i < ui; i++) {
@@ -413,7 +413,7 @@ ifs::VolumeGrid<float>::VolumeGrid(const char* filename, int Nx, int Ny, int Nz,
 		}
 	}
 
-	#pragma omp parallel for schedule(dynamic) num_threads(20) shared(finished)
+	#pragma omp parallel for schedule(dynamic) shared(finished)
 	for (int k = 0; k < Nz; k++) {
 		for (int j = 0; j < Ny; j++) {
 
@@ -462,7 +462,7 @@ ifs::VolumeGrid<float>::VolumeGrid(const char* filename, int Nx, int Ny, int Nz,
 				}
 				else if (intersacted && t != numeric_limits<float>::max()) {
 					Vector pointOnTriang = pos + t * d;
-					int hiti = static_cast<int>(ceil((pointOnTriang.X() - startPos[0]) / deltax));
+					int hiti = static_cast<int>(ceil(((pointOnTriang.X() - startPos[0]) / deltax)));
 
 					//sort(ts.begin(), ts.end());
 					/*if (ts.size() > 2) {
@@ -515,7 +515,9 @@ ifs::VolumeGrid<float>::VolumeGrid(const char* filename, int Nx, int Ny, int Nz,
 						if (numOfIntersactions % 2 == 1) {
 							for (int q = lasti; q < hiti; q++) {
 								float val = get(q, j, k);
-								set(q, j, k, fabs(val));
+								if(val != this->defaultValue){
+									set(q, j, k, fabs(val));
+								}
 							}
 						}
 

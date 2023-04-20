@@ -1,8 +1,8 @@
 # tool macros
 CC := g++
 CXX := g++
-CFLAGS := -lm -lc -fopenmp
-CXXFLAGS := -lm -lc -fopenmp
+CFLAGS := -lm -lc -fopenmp -O3
+CXXFLAGS := -lm -lc -fopenmp -O3
 DBGFLAGS := -g
 COBJFLAGS := $(CFLAGS) -c
 
@@ -37,7 +37,7 @@ default: makedir all
 
 # non-phony targets
 $(TARGET): $(OBJ)
-	$(CXX) -o $@ $(OBJ) $(CFLAGS)
+	$(CXX) -o $@ $(OBJ) $(CXXFLAGS)
 
 $(OBJ_PATH)/%.o: $(SRC_PATH)/%.c*
 	$(CXX) $(COBJFLAGS) -o $@ $<

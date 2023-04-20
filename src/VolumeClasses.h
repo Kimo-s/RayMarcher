@@ -168,9 +168,17 @@ namespace ifs
 		}
 
 
-		int getBlock(int i, int j, int k) {
-			int toRet = i + j * Nx / 4 + k * Nx / 4 * Ny / 4;
-			if (i < 0 || j < 0 || k < 0 || i >= Nx / 4 || j >= Ny / 4 || k >= Nz / 4 || toRet < 0 || toRet >= blocksize) {
+		int getBlock(int i, int j, int k) const {
+			if (i < 0 || j < 0 || k < 0) {
+				return -1;
+			}
+
+			int blocki, blockj, blockk;
+			blocki = i/4;
+			blockj = j/4;
+			blockk = k/4;
+			int toRet = blocki + blockj * Nx / 4 + blockk * Nx / 4 * Ny / 4;
+			if (blocki < 0 || blockj < 0 || blockk < 0 || blocki >= Nx / 4 || blockj >= Ny / 4 || blockk >= Nz / 4 || toRet < 0 || toRet >= blocksize) {
 				return -1;
 			}
 			return toRet;
@@ -185,27 +193,27 @@ namespace ifs
 				return;
 			}
 
-			if (getBlock(i / 4, j / 4, k / 4) == -1) {
+			if (getBlock(i, j, k) == -1) {
 				return;
 			}
 
-			if (data[getBlock(i / 4, j / 4, k / 4)] == NULL) {
+			if (data[getBlock(i, j, k)] == NULL) {
 				T* dataCube = new T[4 * 4 * 4];
 				for (int i = 0; i < 4 * 4 * 4; i++) {
 					dataCube[i] = defaultValue;
 				}
-				data[getBlock(i / 4, j / 4, k / 4)] = dataCube;
-				data[getBlock(i / 4, j / 4, k / 4)][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4] = val;
+				data[getBlock(i, j, k)] = dataCube;
+				data[getBlock(i, j, k)][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4] = val;
 			}
 			else {
-				data[getBlock(i / 4, j / 4, k / 4)][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4] = val;
+				data[getBlock(i, j, k)][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4] = val;
 			}
 
 		}
 
 		T get(int i, int j, int k) {
 			//printf("\r%d %d %d", i, j, k);
-			int block = getBlock(i / 4, j / 4, k / 4);
+			int block = getBlock(i, j, k);
 			if (block == -1 /*|| index2(i, j, k) > Nx * Ny * Nz || index2(i, j, k) < 0 || i < 0 || j < 0 || k < 0 || i >= Nx || j >= Ny || k >= Nz*/) {
 				return defaultValue;
 			}
@@ -357,9 +365,17 @@ namespace ifs
 		}
 
 
-		int getBlock(int i, int j, int k) {
-			int toRet = i + j * Nx / 4 + k * Nx / 4 * Ny / 4;
-			if (i < 0 || j < 0 || k < 0 || i >= Nx / 4 || j >= Ny / 4 || k >= Nz / 4 || toRet < 0 || toRet >= (Nx * Ny * Nz) / 64) {
+		int getBlock(int i, int j, int k) const {
+			if (i < 0 || j < 0 || k < 0) {
+				return -1;
+			}
+
+			int blocki, blockj, blockk;
+			blocki = i/4;
+			blockj = j/4;
+			blockk = k/4;
+			int toRet = blocki + blockj * Nx / 4 + blockk * Nx / 4 * Ny / 4;
+			if (blocki < 0 || blockj < 0 || blockk < 0 || blocki >= Nx / 4 || blockj >= Ny / 4 || blockk >= Nz / 4 || toRet < 0 || toRet >= (Nx*Ny*Nz)/64) {
 				return -1;
 			}
 			return toRet;
@@ -374,26 +390,26 @@ namespace ifs
 				return;
 			}
 
-			if (getBlock(i / 4, j / 4, k / 4) == -1) {
+			if (getBlock(i, j, k) == -1) {
 				return;
 			}
 
-			if (data[getBlock(i / 4, j / 4, k / 4)] == NULL) {
+			if (data[getBlock(i, j, k)] == NULL) {
 				Color* dataCube = new Color[4 * 4 * 4];
 				for (int i = 0; i < 4 * 4 * 4; i++) {
 					dataCube[i] = defaultValue;
 				}
-				data[getBlock(i / 4, j / 4, k / 4)] = dataCube;
-				data[getBlock(i / 4, j / 4, k / 4)][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4] = val;
+				data[getBlock(i, j, k)] = dataCube;
+				data[getBlock(i, j, k)][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4] = val;
 			}
 			else {
-				data[getBlock(i / 4, j / 4, k / 4)][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4] = val;
+				data[getBlock(i, j, k)][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4] = val;
 			}
 
 		}
 
 		Color get(int i, int j, int k) {
-			int block = getBlock(i / 4, j / 4, k / 4);
+			int block = getBlock(i, j, k);
 			if (block == -1 /*|| index2(i, j, k) > Nx * Ny * Nz || index2(i, j, k) < 0 || i < 0 || j < 0 || k < 0 || i >= Nx || j >= Ny || k >= Nz*/) {
 				return defaultValue;
 			}

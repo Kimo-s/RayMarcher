@@ -1,4 +1,3 @@
 *.exr
 *.o
 run
-obj/

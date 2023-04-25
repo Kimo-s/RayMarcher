@@ -201,6 +201,11 @@ scalarFieldT ifs::funcField(float(*func)(float x, float y, float z))
 	return scalarFieldT(new FuncScalarField(func));
 }
 
+VectorField ifs::funcField(Vector(*func)(float x, float y, float z))
+{
+	return VectorField(new FuncVectorField(func));
+}
+
 ColorField ifs::gridColorField(ColorField& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos)
 {
 	return ColorField(new GridColorField(vol, Nx, Ny, Nz, deltax, deltay, deltaz, startPos));
@@ -209,6 +214,10 @@ ColorField ifs::gridColorField(ColorField& vol, int Nx, int Ny, int Nz, float de
 ColorField ifs::colorMaskField(const scalarFieldT& f, Color col)
 {
 	return ColorField(new ColorMaskField(f, col));
+}
+
+scalarFieldT ifs::gridField(VolumeGrid<float> &grid){
+	return scalarFieldT(new GridScalarField(&grid));
 }
 
 scalarFieldT ifs::gridField(int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos)
@@ -301,10 +310,10 @@ void ifs::incompress(VectorField V, VolumeParms* parms)
 	}
 
 	//cout << "Value at the mid point " << divergence(V, 20, 20, 20, dt, parms->startPos) << endl;
-	int numIters = 30;
+	int numIters = 1;
 	for (int iter = 0; iter < numIters; iter++) {
 
-		#pragma omp parallel for schedule(dynamic) num_threads(20)
+		//#pragma omp parallel for schedule(dynamic) num_threads(20)
 		for (int k = 0; k < p->Nz; k++) {
 			for (int j = 0; j < p->Ny; j++) {
 				for (int i = 0; i < p->Nx; i++) {

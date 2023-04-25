@@ -2,6 +2,7 @@
 #include "IFSclasses.h"
 #include "Color.h"
 #include "VolumeBase.h"
+// #include "VectorFieldFuncs.h"
 #include <iostream>
 #define sq(A) (A*A)
 using namespace std;
@@ -163,8 +164,14 @@ namespace ifs {
 		VectorField rotate(Vector u, float theta);
 		VectorField operator+(const VectorField& second);
 		VectorField operator-(const VectorField& second);
-		VectorField operator*(const float constant);
+		// friend const VectorField operator*(const float constant, const VectorField& v){
+		// 	return VectorField(new MultiVectorField(v, constant));
+		// };
+		// friend const VectorField operator*(const VectorField& f, const scalarFieldT& v){
+		// 	return VectorField(new VectorTimesScalarField(f, v));
+		// };
 		VectorField operator*(const scalarFieldT& constant);
+		VectorField operator*(const float constant);
 	};
 
 	class scalarFieldT : public std::shared_ptr<FieldBase<float> > {
@@ -219,6 +226,7 @@ namespace ifs {
 	scalarFieldT constantScalarField(float c);
 	VectorField constantVectorField(Vector c);
 	scalarFieldT funcField(float(*func)(float x, float y, float z));
+	VectorField funcField(Vector(*func)(float x, float y, float z));
 
 	ColorField gridColorField(ColorField& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos); 
 	ColorField colorMaskField(const scalarFieldT& f, Color col);
@@ -226,6 +234,7 @@ namespace ifs {
 
 	scalarFieldT plane(Vector normal, Vector center, FSPNParms params);
 	scalarFieldT gridField(scalarFieldT& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
+	scalarFieldT gridField(VolumeGrid<float> &grid);
 	VectorField gridField(VectorField& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 	scalarFieldT gridField(scalarFieldT& vol, Vector lightPos, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 	scalarFieldT gridField(const char* filename, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);

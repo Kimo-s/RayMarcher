@@ -57,7 +57,7 @@ VolumeGrid<float>::VolumeGrid(scalarFieldT vol, int Nx, int Ny, int Nz, float de
 	this->deltaz = deltaz;
 	this->startPos = startPos;
 	blocksize = (Nx * Ny * Nz) / 64;
-	this->defaultValue = 0.0f;
+	this->defaultValue = -10.0f;
 	data = make_unique<float* []>((Nx * Ny * Nz) / 64);
 	//data = new float* [(Nx * Ny * Nz) / 64];
 	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
@@ -201,7 +201,6 @@ VolumeGrid<float>::VolumeGrid(scalarFieldT vol, Vector lightPos, int Nx, int Ny,
 
 	setUpCamera(c);
 
-	#pragma omp parallel for schedule(dynamic) num_threads(20) shared(finished)
 	for (int j = 0; j < Ny; j++) {
 		for (int i = 0; i < Nx; i++) {
 			float T = 0.0f;
@@ -338,7 +337,7 @@ ifs::VolumeGrid<float>::VolumeGrid(const char* filename, int Nx, int Ny, int Nz,
 	this->startPos = startPos;
 	blocksize = (Nx * Ny * Nz) / 64;
 	this->data = make_unique<float* []>((Nx * Ny * Nz) / 64);
-	this->defaultValue = -1000000.0f;
+	this->defaultValue = -1000.0f;
 	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
 		this->data[p] = NULL;
 	}
@@ -353,7 +352,7 @@ ifs::VolumeGrid<float>::VolumeGrid(const char* filename, int Nx, int Ny, int Nz,
 
 	int finished = 0;
 
-	int bandwidth = 20;
+	int bandwidth = 50;
 	for (int ind = 0; ind < loader.LoadedIndices.size(); ind += 3) {
 
 		Vector p1 = Vector(loader.LoadedVertices[loader.LoadedIndices[ind]].Position.X, loader.LoadedVertices[loader.LoadedIndices[ind]].Position.Y , loader.LoadedVertices[loader.LoadedIndices[ind]].Position.Z);

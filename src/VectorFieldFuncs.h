@@ -38,6 +38,20 @@ namespace ifs {
 		};
 	};
 
+	class FuncVectorField : public FieldBase<Vector> {
+	public:
+		Vector (*func)(float x, float y, float z);
+
+
+		FuncVectorField(Vector (*implicitFunction)(float x, float y, float z)) {
+			func = implicitFunction;
+		}
+
+		const Vector eval(const Vector& pos) const{
+			return func(pos.X(), pos.Y(), pos.Z());
+		}
+	};
+
 	class AddVectorFields : public FieldBase<Vector> {
 	public:
 		AddVectorFields(const VectorField& a, const VectorField& b);

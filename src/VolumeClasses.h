@@ -211,7 +211,7 @@ namespace ifs
 
 		}
 
-		T get(int i, int j, int k) {
+		T get(int i, int j, int k) const{
 			//printf("\r%d %d %d", i, j, k);
 			int block = getBlock(i, j, k);
 			if (block == -1 /*|| index2(i, j, k) > Nx * Ny * Nz || index2(i, j, k) < 0 || i < 0 || j < 0 || k < 0 || i >= Nx || j >= Ny || k >= Nz*/) {
@@ -288,6 +288,72 @@ namespace ifs
 
 			return c.eye() + (c.view() + q).unitvector() * z;
 		}
+
+		friend ostream& operator<<(ostream& os, const VolumeGrid& grid){
+			os << grid.deltax;
+			os << "\n";
+			os << grid.deltay;
+			os << "\n";
+			os << grid.deltaz;
+			os << "\n";
+			os << grid.defaultValue;
+			os << "\n";
+			os << grid.blocksize;
+			os << "\n";
+			os << grid.Nx;
+			os << "\n";
+			os << grid.Ny;
+			os << "\n";
+			os << grid.Nz;
+			os << "\n";
+			for(int i = 0; i < grid.blocksize; i++){
+				if(grid.data[i] == NULL){
+					os << 0;
+				} else {
+					for(int q = 0; q < 4*4*4; q++){
+						os << grid.data[i][q];
+						os << " ";
+					}
+				}
+				os << "\n";
+			}
+
+
+			return os;
+		}
+
+
+		// friend ifstream &operator>>(ifstream& is, const VolumeGrid<float>& grid){
+		// 	string line;
+		// 	is.getline(line, 50);
+		// 	grid.deltax = stof(line);
+		// 	is.getline(line, 50);
+		// 	grid.deltay  = stof(line);
+		// 	is.getline(line, 50);
+		// 	grid.deltaz  = stof(line);
+		// 	is.getline(line, 50);
+		// 	grid.defaultValue = stof(line);
+		// 	is.getline(line, 50);
+		// 	grid.blocksize = stoi(line);
+		// 	is.getline(line, 50);
+		// 	grid.Nx = stoi(line);
+		// 	is.getline(line, 50);
+		// 	grid.Ny = stoi(line);
+		// 	is.getline(line, 50);
+		// 	grid.Nz = stoi(line);
+			
+		// 	// for(int i = 0; i < grid.blocksize; i++){
+		// 	// 	char buf[30];
+		// 	// 	is >> buf;
+		// 	// 	if((buf)
+		// 	// 	is >> grid.data[i][q];
+		// 	// }
+
+		// 	cout << "Testing the read: " << grid.deltax << grid.Nx << grid.blocksize << endl;
+
+
+		// 	return is;
+		// }
 	};
 
 

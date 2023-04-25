@@ -162,12 +162,19 @@ const float ifs::pyroclasticScalarField::eval(const Vector& pos) const
 	float val = a->eval(pos);
 	Vector cpt = pos - val * a->grad(pos);
 
+	
+	
+
 	float toAdd = 0.0f;
 	for (int i = 0; i < params.N; i++) {
 		Vector temp = (cpt - params.xt) * params.f * pow(params.fj, i);
 		toAdd += pow(params.roughness, i) * db::perlin(temp.X(), temp.Y(), temp.Z());
 	}
 	toAdd *= (1 - params.roughness) / (1 - pow(params.roughness, params.N));
+
+	// if(val == -1000.0f){
+	// 	cout << "val of " << val << " the noise is " << pow(fabs(toAdd), params.gamma) * params.A << endl;
+	// }
 
 	return val + pow(fabs(toAdd), params.gamma) * params.A;
 }

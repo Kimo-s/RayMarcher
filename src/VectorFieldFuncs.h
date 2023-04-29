@@ -102,7 +102,7 @@ namespace ifs {
 		float constant;
 		const VectorField a;
 
-		MultiVectorField(const VectorField& a, const float& constant);
+		MultiVectorField(const VectorField& a, const float constant);
 
 		const Vector eval(const Vector& pos) const;
 
@@ -192,9 +192,9 @@ namespace ifs {
 	public:
 		VolumeGrid<Vector>* grid;
 
-		//~GridVectorField() {
-		//	delete grid;
-		//}
+		~GridVectorField() {
+			delete grid;
+		}
 
 		GridVectorField(VectorField& vol, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz, Vector startPos);
 		GridVectorField(VolumeGrid<Vector>* thegrid) {

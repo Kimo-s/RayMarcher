@@ -196,7 +196,9 @@ namespace ifs {
 		scalarFieldT rotate(Vector u, float theta);
 		scalarFieldT addGuideParticale(Vector u, FSPNParms params, float fade, int Nx, int Ny, int Nz, float deltax, float deltay, float deltaz);
 		scalarFieldT operator+(const scalarFieldT& second);
+		scalarFieldT operator-(const scalarFieldT& second);
 		scalarFieldT operator*(const scalarFieldT& second);
+		scalarFieldT operator*(const float num);
 		scalarFieldT addWispParticale(VolumeParms parms, FSPNParms fspn1, FSPNParms fspn2, Vector guidPos, float density, float pscale, float wisp_displacement, float clump, int wispCount);
 	};
 
@@ -248,7 +250,8 @@ namespace ifs {
 	VectorField noiseVectorField(FSPNParms parms);
 	scalarFieldT warp(scalarFieldT soruce, VectorField wraper);
 
-	void incompress(VectorField soruce, VolumeParms* parms);
+	VectorField incompress(VectorField soruce, VolumeParms* parms);
 	scalarFieldT advect(scalarFieldT density, VectorField vel, float dt);
 	VectorField advect(VectorField s, VectorField vel, float dt);
+	float divergence(VectorField V, int i, int j, int k, float dt, Vector startPos);
 }

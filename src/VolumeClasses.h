@@ -54,6 +54,7 @@ namespace ifs
 		float deltay = 0.1f;
 		float deltaz = 0.1f;
 		T defaultValue{};
+		T minval{};
 		int Nx, Ny, Nz;
 		Vector startPos;
 		int blocksize;
@@ -82,9 +83,9 @@ namespace ifs
 		~VolumeGrid() {
 			for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
 				//cout << "Deleting array at " << p << endl;
-				if (data[p] != NULL) {
+				// if (data[p] != NULL) {
 					delete [] data[p];
-				}
+				// }
 			}
 			data.reset();
 		};
@@ -189,24 +190,24 @@ namespace ifs
 		}
 
 		void set(int i, int j, int k, T val) {
-			if (index2(i, j, k) > Nx * Ny * Nz || index2(i, j, k) < 0 || val <= defaultValue) {
+			if (index2(i, j, k) > Nx * Ny * Nz || index2(i, j, k) < 0 || val <= minval) {
+				return;
+			}
+			int block = getBlock(i, j, k);
+			if (block == -1) {
 				return;
 			}
 
-			if (getBlock(i, j, k) == -1) {
-				return;
-			}
-
-			if (data[getBlock(i, j, k)] == NULL) {
+			if (data[block] == NULL) {
 				T* dataCube = new T[4 * 4 * 4];
 				for (int i = 0; i < 4 * 4 * 4; i++) {
 					dataCube[i] = defaultValue;
 				}
-				data[getBlock(i, j, k)] = dataCube;
-				data[getBlock(i, j, k)][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4] = val;
+				data[block] = dataCube;
+				data[block][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4] = val;
 			}
 			else {
-				data[getBlock(i, j, k)][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4] = val;
+				data[block][(i % 4) + (j % 4) * 4 + (k % 4) * 4 * 4] = val;
 			}
 
 		}

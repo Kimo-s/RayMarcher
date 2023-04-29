@@ -57,7 +57,7 @@ VolumeGrid<float>::VolumeGrid(scalarFieldT vol, int Nx, int Ny, int Nz, float de
 	this->deltaz = deltaz;
 	this->startPos = startPos;
 	blocksize = (Nx * Ny * Nz) / 64;
-	this->defaultValue = -10.0f;
+	this->defaultValue = 0.0f;
 	data = make_unique<float* []>((Nx * Ny * Nz) / 64);
 	//data = new float* [(Nx * Ny * Nz) / 64];
 	for (int p = 0; p < (Nx * Ny * Nz) / 64; p++) {
@@ -66,7 +66,7 @@ VolumeGrid<float>::VolumeGrid(scalarFieldT vol, int Nx, int Ny, int Nz, float de
 
 	int finished = 0;
 
-	#pragma omp parallel for schedule(dynamic) num_threads(20) shared(finished) 
+	#pragma omp parallel for schedule(dynamic) shared(finished) 
 	for (int k = 0; k < Nz; k++) {
 		for (int j = 0; j < Ny; j++) {
 			for (int i = 0; i < Nx; i++) {
@@ -90,6 +90,7 @@ ifs::VolumeGrid<Vector>::VolumeGrid(VectorField vol, int Nx, int Ny, int Nz, flo
 	this->deltay = deltay;
 	this->deltaz = deltaz;
 	this->startPos = startPos;
+	this->defaultValue = Vector(0.0,0.0,0.0);
 	blocksize = (Nx * Ny * Nz) / 64;
 	data = make_unique<Vector* []>((Nx * Ny * Nz) / 64);
 	//data = new float* [(Nx * Ny * Nz) / 64];
@@ -99,7 +100,7 @@ ifs::VolumeGrid<Vector>::VolumeGrid(VectorField vol, int Nx, int Ny, int Nz, flo
 
 	int finished = 0;
 
-#pragma omp parallel for schedule(dynamic) num_threads(20) shared(finished) 
+#pragma omp parallel for schedule(dynamic) shared(finished) 
 	for (int k = 0; k < Nz; k++) {
 		for (int j = 0; j < Ny; j++) {
 			for (int i = 0; i < Nx; i++) {

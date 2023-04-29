@@ -116,8 +116,9 @@ const Vector ifs::NoiseVectorField::eval(const Vector& pos) const
 	return Vector((y - z) / dt, (z - x) / dt, (x - y) / dt);
 }
 
-ifs::MultiVectorField::MultiVectorField(const VectorField& a, const float& constant) : a(a), constant(constant)
+ifs::MultiVectorField::MultiVectorField(const VectorField& a, const float constant) : a(a), constant(constant)
 {
+	this->constant = constant;
 }
 
 const Vector ifs::MultiVectorField::eval(const Vector& pos) const

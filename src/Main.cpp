@@ -7,12 +7,16 @@
 #include "Camera.h"
 #include "Vector.h"
 #include "VolumeClasses.h"
+#include "ScalarFieldFuncs.h"
 #include "FieldClasses.h"
 
 #define TINYEXR_IMPLEMENTATION
 #include "tinyexr.h"
 #define M_PI 3.14159265358979323846
 using namespace ifs;
+
+#define DB_PERLIN_IMPL
+#include "db_perlin.hpp"
 
 #define sq(A) (A*A)
 
@@ -131,6 +135,27 @@ float cylinder(float x, float y, float z) {
 Vector tornadoFunc(float x, float y, float z){
 	Vector pos(-y,x,0);
 	pos.normalize();
+	//pos = pos * Vector(x,y,0).magnitude();
+	Vector n = Vector(x,y,0) ;
+	float mag = n.magnitude();
+	n.normalize();
+	
+	FSPNParms parms = {
+		1.0,
+		2,
+		0.6f,
+		3.0f,
+		0.7f,
+		Vector(0,0,0),
+		0.8f
+	};
+
+	//n = n * -fabs(evalFSPN(parms, Vector(x,y,z)));
+	pos = pos - n * mag * 4.0f;
+	
+	if(x == 0 && y == 0){
+		return Vector(0,0,0.1);
+	}
 	return pos;
 }
 
@@ -206,70 +231,84 @@ int main() {
 	// Input parameters
 	int width = 1920;
 	int height = 1080;
-	float ds = 0.0005f;
-	float sfar = 6.0f;
-	float snear = 2.0f;
-	float k = 1.0f;
+	float ds = 0.005f;
+	float sfar = 8.0f;
+	float snear = 4.0f;
+	float k = 0.1f;
 
 	Camera c;
-	float r = 5.0f;
+	float r = 7.0f;
 	float theta = M_PI / 2.0f;
 	c.setAspectRatio(1.0 * width / height);
 
-
-	float dx = 0.12f;
+	int N = 400;
+	float dx = 6.0/N;
+	int Nvec = 50;
+	float dxvec = 6.0/Nvec;
 	VolumeParms volparms = {
-		50,
-		50,
-		50,
-		dx,
-		dx,
-		dx,
+		Nvec,
+		Nvec,
+		Nvec,
+		dxvec,
+		dxvec,
+		dxvec,
 		Vector(-3.0,-3.0,-3.0)
 	};
 
-	scalarFieldT inith = funcField(sphere).scale(0.4).translate(Vector(0,0,0.4));
-	VectorField V = constantVectorField(Vector(0.0,0.0,-0.3));
+	scalarFieldT h = funcField(sphere).scale(0.45).translate(Vector(0,0,0.4));
+	VectorField V = constantVectorField(Vector(0.0,0.0,-0.4));
+	//V = gridField(V, N, N, N, dx, dx, dx, Vector(-5.0, -5.0, -5.0));
 
 	VectorField xmap = identityVectorField();
 
-	int N = 100;
-	float dt = 0.04;
+	float dt = 0.01;
 	int i = 0;
 
-	{
-		VolumeGrid<float> dsmKey(inith, Vector(0.0f, 0.0f, -5.0f), 300, 300, 300, 2.0f, 8.0f, 45.0*(M_PI/180.0));
+	// {
+	// 	VolumeGrid<float> dsmKey(inith, Vector(0.0f, 0.0f, -5.0f), 300, 300, 300, 2.0f, 8.0f, 45.0*(M_PI/180.0));
 
-		std::vector< VolumeGrid<float>* > dsmMap = {&dsmKey};
-		std::vector< Color > lightColorMap = {Color(1.0,1.0,1.0,1.0)};
+	// 	std::vector< VolumeGrid<float>* > dsmMap = {&dsmKey};
+	// 	std::vector< Color > lightColorMap = {Color(1.0,1.0,1.0,1.0)};
 
 
-		ColorField colField = colorMaskField(inith, color1);
+	// 	ColorField colField = colorMaskField(inith, color1);
 
-		char name[100];
+	// 	char name[100];
 
-		Vector cameraCenter = Vector(0, r, -1.0f);
-		c.setEyeViewUp(cameraCenter, -1.0f * cameraCenter, Vector(0, 0, 1));
-		sprintf(name, "orignial.exr");
-		rayMarch(inith, dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
-	}
+	// 	Vector cameraCenter = Vector(0, r, -1.0f);
+	// 	c.setEyeViewUp(cameraCenter, -1.0f * cameraCenter, Vector(0, 0, 1));
+	// 	sprintf(name, "orignial.exr");
+	// 	rayMarch(inith, dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
+	// }
 
+	int timesteps = 20;
+	// scalarFieldT h = constantField(0.0);
 	for (int frame = 0; frame < 120; frame++) {
+		for(int step = 0; step < timesteps; step++){
+			//xmap = advect(xmap, V, dt);
+			// xmap = xmap - identityVectorField();
+			//xmap = gridField(xmap, Nvec, Nvec, Nvec, dxvec, dxvec, dxvec, Vector(-3.0,-3.0,-3.0));
+			// xmap = xmap + identityVectorField();
+			
+			//h = gridField(h, N, N, N, dx, dx, dx, Vector(-5.0, -5.0, -5.0));
+			//h = warp(h, xmap);
+			h = advect(h, V, dt);
+			h = gridField(h, N, N, N, dx, dx, dx, Vector(-3.0, -3.0, -3.0));
 
-		// with characteristic map 
-		xmap = advect(xmap, V, dt);
-		xmap = xmap - identityVectorField();
-		xmap = gridField(xmap, 50, 50, 50, dx, dx, dx, Vector(-3.0, -3.0, -3.0));
-		xmap = xmap + identityVectorField();
-		scalarFieldT h = warp(inith, xmap);
-		
-		// h = advect(h, V, dt);
-		h = gridField(h, N, N, N, 6.0/N, 6.0/N, 6.0/N, Vector(-3.0, -3.0, -3.0));
+			VectorField forcingField = funcField(tornadoFunc);
 
-		V = advect(V, V, dt) + (funcField(tornadoFunc)*h)*dt;
-		// incompress(V, &volparms);
 
-		VolumeGrid<float> dsmKey(h, Vector(0.0f, 0.0f, -5.0f), 400, 400, 400, 2.0f, 8.0f, 45.0*(M_PI/180.0));
+			V = advect(V, V, dt) - (forcingField*h)*dt;
+			//V = gridField(V, Nvec, Nvec, Nvec, dxvec, dxvec, dxvec, Vector(-3.0, -3.0, -3.0));
+			//cout << "Divergence at the mid point before out " << divergence(V, Nvec/2, Nvec/2, Nvec/2, volparms.dx, Vector(-3.0,-3.0,-3.0)) << endl;
+			V = incompress(V, &volparms);
+			// cout << "test point of forcing field " << forcingField->eval(Vector(0,1,0)).__str__() << endl;
+			// cout << "test point of h " << h->eval(Vector(0,0,1)) << endl;
+		}
+
+
+
+		VolumeGrid<float> dsmKey(h, Vector(0.0f, 0.0f, -3.0f), 400, 400, 400, 0.0f, 6.0f, 45.0*(M_PI/180.0));
 
 		std::vector< VolumeGrid<float>* > dsmMap = {&dsmKey};
 		std::vector< Color > lightColorMap = {Color(1.0,1.0,1.0,1.0)};
@@ -279,7 +318,7 @@ int main() {
 
 		char name[100];
 
-		Vector cameraCenter = Vector(0, r, -1.0f);
+		Vector cameraCenter = Vector(0, r, 0.0f);
 		c.setEyeViewUp(cameraCenter, -1.0f * cameraCenter, Vector(0, 0, 1));
 		sprintf(name, "out%03d.exr", i);
 		rayMarch(h, dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);

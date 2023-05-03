@@ -66,7 +66,7 @@ VolumeGrid<float>::VolumeGrid(scalarFieldT vol, int Nx, int Ny, int Nz, float de
 
 	int finished = 0;
 
-	#pragma omp parallel for schedule(dynamic) shared(finished) 
+	#pragma omp parallel for schedule(static) shared(finished) 
 	for (int k = 0; k < Nz; k++) {
 		for (int j = 0; j < Ny; j++) {
 			for (int i = 0; i < Nx; i++) {
@@ -155,7 +155,7 @@ VolumeGrid<float>::VolumeGrid(scalarFieldT vol, Vector lightPos, int Nx, int Ny,
 
 	int finished = 0;
 
-	#pragma omp parallel for schedule(dynamic) num_threads(20) shared(finished) 
+	#pragma omp parallel for schedule(static) shared(finished) 
 	for (int k = 0; k < Nz; k++) {
 		for (int j = 0; j < Ny; j++) {
 			for (int i = 0; i < Nx; i++) {
@@ -202,6 +202,7 @@ VolumeGrid<float>::VolumeGrid(scalarFieldT vol, Vector lightPos, int Nx, int Ny,
 
 	setUpCamera(c);
 
+	#pragma omp parallel for schedule(static) shared(finished) 
 	for (int j = 0; j < Ny; j++) {
 		for (int i = 0; i < Nx; i++) {
 			float T = 0.0f;

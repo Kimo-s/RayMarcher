@@ -132,31 +132,64 @@ float cylinder(float x, float y, float z) {
 	}
 }
 
+float flatPlane(float x, float y, float z){
+	Vector pos(x,y,z);
+
+	if (fabs(pos.X()) > 1.50) {
+		return 0.0f;
+	}
+	else if (fabs(pos.Y()) > 1.50) {
+		return 0.0f;
+	}
+
+	float val = pos * Vector(0.0,0.0,1.0);
+
+	if(z > 0.5){
+		val = -val;
+	}
+
+	return val;
+}
+
 Vector tornadoFunc(float x, float y, float z){
 	Vector pos(-y,x,0);
 	pos.normalize();
 	//pos = pos * Vector(x,y,0).magnitude();
 	Vector n = Vector(x,y,0) ;
-	float mag = n.magnitude();
-	n.normalize();
+	//float mag = n.magnitude();
 	
 	FSPNParms parms = {
 		1.0,
 		2,
 		0.6f,
-		3.0f,
+		5.0f,
 		0.7f,
 		Vector(0,0,0),
-		0.8f
+		1.5f
 	};
 
+	//float sign = -n.magnitude() + z;
+	//if(sign > 0.0){
+	//	sign = 30.0f;
+	//}
+	//n.normalize();
+
+	float noise = evalFSPN(parms, Vector(x,y,z));
 	//n = n * -fabs(evalFSPN(parms, Vector(x,y,z)));
-	pos = pos - n * mag * 4.0f;
+	pos = pos * 2.0 - n * 9.0 * fabs(noise);
+	pos[2] = noise;
 	
 	if(x == 0 && y == 0){
 		return Vector(0,0,0.1);
 	}
-	return pos;
+
+	if(z > 0.0){
+		pos[2] += -4;
+	} else if (z < 0.0) {
+		pos[2] += 4;
+	}
+
+	return pos * 9.0f;
 }
 
 void rayMarch(scalarFieldT f, std::vector<VolumeGrid<float>* > DSM, std::vector<Color> lightColor, ColorField colField, Camera c, Vector cameraPosition, float ds, float snear, float sfar, float k, int width, int height, string filename) {
@@ -172,7 +205,7 @@ void rayMarch(scalarFieldT f, std::vector<VolumeGrid<float>* > DSM, std::vector<
 
 	int percent = 0;
 	
-	#pragma omp parallel for schedule(dynamic) shared(percent, f, DSM) 
+	#pragma omp parallel for schedule(static) shared(percent, f, DSM) 
 	for (int j = 0; j < height; j++) {
 		for (int i = 0; i < width; i++) {
 			float s = snear;
@@ -223,22 +256,21 @@ void rayMarch(scalarFieldT f, std::vector<VolumeGrid<float>* > DSM, std::vector<
 
 
 int main() {
-	Color color1(1.0f, 1.0f, 0.0f, 1.0f);
-	Color color2(1.0f, 1.0f, 1.0f, 1.0f);
+	Color color1(0.75f, 0.75f, 0.75f, 1.0f);
+	Color color2(1.0f, 0.0f, 1.0f, 1.0f);
 	Color color3(1.0f, 1.0f, 5.0f, 1.0f);
 
 
 	// Input parameters
 	int width = 1920;
 	int height = 1080;
-	float ds = 0.005f;
-	float sfar = 8.0f;
-	float snear = 4.0f;
-	float k = 0.1f;
+	float ds = 0.002f;
+	float sfar = 9.0f;
+	float snear = 3.0f;
+	float k = 0.06f;
 
 	Camera c;
-	float r = 7.0f;
-	float theta = M_PI / 2.0f;
+	float r = 6.0f;
 	c.setAspectRatio(1.0 * width / height);
 
 	int N = 400;
@@ -255,13 +287,19 @@ int main() {
 		Vector(-3.0,-3.0,-3.0)
 	};
 
-	scalarFieldT h = funcField(sphere).scale(0.45).translate(Vector(0,0,0.4));
-	VectorField V = constantVectorField(Vector(0.0,0.0,-0.4));
-	//V = gridField(V, N, N, N, dx, dx, dx, Vector(-5.0, -5.0, -5.0));
+	scalarFieldT h = funcField(sphere).scale(0.4).translate(Vector(0.3,0,0.6)).mask() * constantField(0.15);
+	//scalarFieldT obs = funcField(sphere).scale(0.5).translate(Vector(0,0,-0.9));
+	// scalarFieldT obs = funcField(flatPlane).translate(Vector(0,0,-1.7));
+	scalarFieldT obs = constantField(0.0f);
+	scalarFieldT source = funcField(sphere).scale(0.1).translate(Vector(0,0,1.2)).mask();
+
+	VectorField V = constantVectorField(Vector(0.0,0.0,-0.1));
+
 
 	VectorField xmap = identityVectorField();
 
-	float dt = 0.01;
+	//float dt = 0.01;
+	float dt = 0.1;
 	int i = 0;
 
 	// {
@@ -281,47 +319,56 @@ int main() {
 	// 	rayMarch(inith, dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
 	// }
 
-	int timesteps = 20;
-	// scalarFieldT h = constantField(0.0);
-	for (int frame = 0; frame < 120; frame++) {
-		for(int step = 0; step < timesteps; step++){
-			//xmap = advect(xmap, V, dt);
-			// xmap = xmap - identityVectorField();
-			//xmap = gridField(xmap, Nvec, Nvec, Nvec, dxvec, dxvec, dxvec, Vector(-3.0,-3.0,-3.0));
-			// xmap = xmap + identityVectorField();
+	int timesteps = 1;
+	scalarFieldT h2 = constantField(0.0);
+	for (int frame = 0; frame < 360; frame++) {
+
+		// for(int step = 0; step < timesteps; step++){
+		// 	xmap = advect(xmap, V, dt);
+		// 	xmap = xmap - identityVectorField();
+		// 	xmap = gridField(xmap, Nvec, Nvec, Nvec, dxvec, dxvec, dxvec, Vector(-3.0,-3.0,-3.0));
+		// 	xmap = xmap + identityVectorField();
 			
-			//h = gridField(h, N, N, N, dx, dx, dx, Vector(-5.0, -5.0, -5.0));
-			//h = warp(h, xmap);
+		// 	//h = gridField(h, N, N, N, dx, dx, dx, Vector(-5.0, -5.0, -5.0));
+		// 	h2 = warp(h, xmap);
+
+		// 	VectorField forcingField = funcField(tornadoFunc);
+
+		// 	V = advect(V, V, dt) + (forcingField*h2)*dt;
+		// 	V = incompress(V, obs, &volparms);
+		// }
+
+
+
+		for(int step = 0; step < timesteps; step++){
 			h = advect(h, V, dt);
 			h = gridField(h, N, N, N, dx, dx, dx, Vector(-3.0, -3.0, -3.0));
 
 			VectorField forcingField = funcField(tornadoFunc);
 
 
-			V = advect(V, V, dt) - (forcingField*h)*dt;
-			//V = gridField(V, Nvec, Nvec, Nvec, dxvec, dxvec, dxvec, Vector(-3.0, -3.0, -3.0));
-			//cout << "Divergence at the mid point before out " << divergence(V, Nvec/2, Nvec/2, Nvec/2, volparms.dx, Vector(-3.0,-3.0,-3.0)) << endl;
-			V = incompress(V, &volparms);
-			// cout << "test point of forcing field " << forcingField->eval(Vector(0,1,0)).__str__() << endl;
-			// cout << "test point of h " << h->eval(Vector(0,0,1)) << endl;
-		}
+			V = advect(V, V, dt) + (forcingField*h)*dt;
+			V = incompress(V, obs, &volparms);
+		} 
 
 
-
-		VolumeGrid<float> dsmKey(h, Vector(0.0f, 0.0f, -3.0f), 400, 400, 400, 0.0f, 6.0f, 45.0*(M_PI/180.0));
+		scalarFieldT finalField = h;
+		VolumeGrid<float> dsmKey(finalField, Vector(0.0f, 0.0f, -7.0f), 700, 700, 700, 0.0f, 7.0f+3.0f, 70.0*(M_PI/180.0));
+		//VolumeGrid<float> dsmKey2(finalField, Vector(0.0f, 7.0f, -3.0f), 700, 700, 700, 0.0f, 7.0f+3.0f, 70.0*(M_PI/180.0));
 
 		std::vector< VolumeGrid<float>* > dsmMap = {&dsmKey};
 		std::vector< Color > lightColorMap = {Color(1.0,1.0,1.0,1.0)};
 
 
 		ColorField colField = colorMaskField(h, color1);
+		//colField = colField + colorMaskField(obs, color2);
 
 		char name[100];
 
-		Vector cameraCenter = Vector(0, r, 0.0f);
+		Vector cameraCenter = Vector(0, r, -2.0f);
 		c.setEyeViewUp(cameraCenter, -1.0f * cameraCenter, Vector(0, 0, 1));
 		sprintf(name, "out%03d.exr", i);
-		rayMarch(h, dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
+		rayMarch(finalField, dsmMap, lightColorMap, colField, c, cameraCenter, ds, snear, sfar, k, width, height, name);
 		i+=1;
 	}
 

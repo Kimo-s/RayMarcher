@@ -250,7 +250,7 @@ namespace ifs {
 	VectorField noiseVectorField(FSPNParms parms);
 	scalarFieldT warp(scalarFieldT soruce, VectorField wraper);
 
-	VectorField incompress(VectorField soruce, VolumeParms* parms);
+	VectorField incompress(VectorField V, scalarFieldT obs, VolumeParms* parms);
 	scalarFieldT advect(scalarFieldT density, VectorField vel, float dt);
 	VectorField advect(VectorField s, VectorField vel, float dt);
 	float divergence(VectorField V, int i, int j, int k, float dt, Vector startPos);

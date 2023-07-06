@@ -291,7 +291,7 @@ float ifs::divergence(VectorField V, int i, int j, int k, float dt, Vector start
 	return x + y + z;
 }
 
-VectorField ifs::incompress(VectorField V, VolumeParms* parms)
+VectorField ifs::incompress(VectorField V, scalarFieldT obs, VolumeParms* parms)
 {
 	VolumeGrid<Vector>* newV = new VolumeGrid<Vector>(parms->Nx, parms->Ny, parms->Nz, parms->dx, parms->dx, parms->dx, parms->startPos);
 	VolumeGrid<float> p(parms->Nx, parms->Ny, parms->Nz, parms->dx, parms->dx, parms->dx, parms->startPos);
@@ -341,7 +341,17 @@ VectorField ifs::incompress(VectorField V, VolumeParms* parms)
 		for (int j = 0; j < newV->Ny; j++) {
 			for (int i = 0; i < newV->Nx; i++) {
 				Vector pos = Vector(i * dt + parms->startPos[0], j * dt + parms->startPos[1], k * dt + parms->startPos[2]);
-				newV->set(i, j, k, V->eval(pos) - pfield->grad(pos));
+				Vector res = V->eval(pos) - pfield->grad(pos);
+				
+
+				Vector n = obs->grad(pos);
+				n.normalize();
+
+				if(obs->eval(pos) >= 0.0 && -n * res > 0.0){
+					newV->set(i, j, k, res - 2*n*(n*res));
+				} else {
+					newV->set(i, j, k, res);
+				}
 			}
 		}
 	}
